@@ -1,0 +1,823 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Reportify</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #FFFFFF;
+    --bg-soft: #FAFAFA;
+    --bg-code: #F6F6F6;
+    --ink: #000000;
+    --ink-soft: #333333;
+    --ink-muted: #666666;
+    --ink-faint: #999999;
+    --line: #E5E5E5;
+    --line-soft: #F0F0F0;
+    --accent: #000000;
+    --green: #00875A;
+    --red: #DE350B;
+    --blue: #0066FF;
+    --max-w: 1080px;
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body {
+    font-family: 'Inter', -apple-system, system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+    line-height: 1.6;
+    font-size: 15px;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ── Nav ── */
+  nav {
+    max-width: var(--max-w);
+    margin: 0 auto;
+    padding: 20px 40px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid var(--line);
+  }
+  .logo {
+    font-weight: 800;
+    font-size: 18px;
+    letter-spacing: -0.03em;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .logo-mark {
+    width: 24px; height: 24px;
+    background: var(--ink);
+    color: var(--bg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    font-weight: 800;
+    border-radius: 4px;
+  }
+  .nav-links { display: flex; gap: 24px; align-items: center; }
+  .nav-links a {
+    color: var(--ink-muted);
+    text-decoration: none;
+    font-size: 13px;
+    font-weight: 500;
+    transition: color 0.15s;
+  }
+  .nav-links a:hover { color: var(--ink); }
+  .nav-cta {
+    background: var(--ink);
+    color: var(--bg);
+    padding: 7px 16px;
+    border-radius: 6px;
+    text-decoration: none;
+    font-size: 13px;
+    font-weight: 600;
+  }
+
+  /* ── Hero ── */
+  .hero {
+    max-width: var(--max-w);
+    margin: 0 auto;
+    padding: 100px 40px 80px;
+  }
+  .hero h1 {
+    font-weight: 800;
+    font-size: clamp(40px, 6vw, 64px);
+    line-height: 1.05;
+    letter-spacing: -0.04em;
+    max-width: 900px;
+    margin-bottom: 32px;
+  }
+  .hero h1 .mono {
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 500;
+    font-size: 0.85em;
+    background: var(--bg-code);
+    padding: 2px 12px;
+    border-radius: 6px;
+    border: 1px solid var(--line);
+    letter-spacing: -0.01em;
+  }
+  .hero-lead {
+    font-size: 18px;
+    color: var(--ink-muted);
+    max-width: 580px;
+    margin-bottom: 40px;
+    line-height: 1.6;
+  }
+  .hero-actions { display: flex; gap: 12px; align-items: center; }
+  .btn-primary {
+    background: var(--ink);
+    color: var(--bg);
+    padding: 12px 24px;
+    border-radius: 8px;
+    text-decoration: none;
+    font-size: 14px;
+    font-weight: 600;
+    transition: opacity 0.15s;
+  }
+  .btn-primary:hover { opacity: 0.8; }
+  .btn-text {
+    color: var(--ink);
+    padding: 12px 8px;
+    text-decoration: none;
+    font-size: 14px;
+    font-weight: 500;
+  }
+  .btn-text::after {
+    content: ' →';
+    transition: transform 0.15s;
+    display: inline-block;
+  }
+  .btn-text:hover::after { transform: translateX(3px); }
+
+  /* ── Code Block ── */
+  .code-block {
+    max-width: var(--max-w);
+    margin: 0 auto 80px;
+    padding: 0 40px;
+  }
+  .code-window {
+    background: var(--bg-code);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+  .code-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--line);
+    background: var(--bg-soft);
+  }
+  .code-dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+  }
+  .code-title {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: var(--ink-faint);
+    margin-left: 8px;
+  }
+  .code-body {
+    padding: 24px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    line-height: 1.7;
+  }
+  .code-line { display: flex; gap: 16px; }
+  .code-num {
+    color: var(--ink-faint);
+    width: 24px;
+    text-align: right;
+    flex-shrink: 0;
+    user-select: none;
+  }
+  .code-content { color: var(--ink-soft); }
+  .syntax-key { color: #569CD6; }
+  .syntax-str { color: #CE9178; }
+  .syntax-com { color: var(--ink-faint); }
+  .syntax-fn { color: #DCDCAA; }
+  .syntax-var { color: #4FC1FF; }
+
+  /* ── Section ── */
+  .section {
+    max-width: var(--max-w);
+    margin: 0 auto;
+    padding: 40px 40px;
+  }
+  .section-header {
+    margin-bottom: 40px;
+    display: flex;
+    align-items: baseline;
+    gap: 16px;
+  }
+  .section-num {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    color: var(--ink-faint);
+    font-weight: 500;
+  }
+  .section-title {
+    font-weight: 700;
+    font-size: 28px;
+    letter-spacing: -0.02em;
+  }
+
+  /* ── Flow Diagram ── */
+  .flow {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 0;
+    margin-bottom: 80px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+  .flow-step {
+    padding: 32px 28px;
+    border-right: 1px solid var(--line);
+    position: relative;
+  }
+  .flow-step:last-child { border-right: none; }
+  .flow-step .flow-num {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: var(--ink-faint);
+    margin-bottom: 16px;
+  }
+  .flow-step h3 {
+    font-size: 17px;
+    font-weight: 700;
+    margin-bottom: 8px;
+    letter-spacing: -0.01em;
+  }
+  .flow-step p {
+    font-size: 14px;
+    color: var(--ink-muted);
+    line-height: 1.55;
+  }
+  .flow-step .flow-code {
+    margin-top: 16px;
+    padding: 8px 12px;
+    background: var(--bg-code);
+    border-radius: 6px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--ink-soft);
+  }
+
+  /* ── Chat Demo ── */
+  .chat-demo {
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    overflow: hidden;
+    margin-bottom: 80px;
+  }
+  .chat-header {
+    padding: 16px 24px;
+    border-bottom: 1px solid var(--line);
+    background: var(--bg-soft);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .chat-header h3 {
+    font-size: 15px;
+    font-weight: 600;
+  }
+  .chat-header .meta {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: var(--ink-faint);
+  }
+  .chat-body { padding: 24px; }
+  .chat-msg {
+    max-width: 70%;
+    margin-bottom: 16px;
+    padding: 14px 18px;
+    border-radius: 8px;
+    font-size: 14px;
+    line-height: 1.55;
+  }
+  .chat-msg.user {
+    background: var(--ink);
+    color: var(--bg);
+    margin-left: auto;
+  }
+  .chat-msg.agent {
+    background: var(--bg-soft);
+    border: 1px solid var(--line);
+  }
+  .chat-msg .role {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    margin-bottom: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    opacity: 0.5;
+  }
+  .agent-trace {
+    margin-top: 12px;
+    border-top: 1px solid var(--line-soft);
+    padding-top: 12px;
+  }
+  .agent-trace .trace-item {
+    padding: 4px 0;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: var(--ink-muted);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .trace-item .trace-status {
+    color: var(--green);
+    font-weight: 600;
+  }
+
+  /* ── Report Preview ── */
+  .report-preview {
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    overflow: hidden;
+    margin-bottom: 40px;
+  }
+  .report-header {
+    padding: 24px 28px;
+    border-bottom: 1px solid var(--line);
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+  }
+  .report-header h3 {
+    font-size: 19px;
+    font-weight: 700;
+    margin-bottom: 4px;
+    letter-spacing: -0.01em;
+  }
+  .report-header .report-meta {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--ink-faint);
+    display: flex;
+    gap: 16px;
+  }
+  .report-header .status {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--green);
+    font-weight: 600;
+  }
+  .report-body { padding: 28px; }
+  .kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0;
+    margin-bottom: 28px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  .kpi-card {
+    padding: 20px;
+    border-right: 1px solid var(--line);
+  }
+  .kpi-card:last-child { border-right: none; }
+  .kpi-label {
+    font-size: 11px;
+    color: var(--ink-faint);
+    margin-bottom: 6px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .kpi-value {
+    font-size: 28px;
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    margin-bottom: 2px;
+  }
+  .kpi-value .unit {
+    font-size: 14px;
+    font-weight: 400;
+    color: var(--ink-faint);
+    margin-left: 2px;
+  }
+  .kpi-delta {
+    font-size: 11px;
+    font-weight: 600;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .kpi-delta.up { color: var(--green); }
+  .kpi-delta.down { color: var(--red); }
+
+  .chart-row {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 0;
+    margin-bottom: 20px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  .chart-box {
+    padding: 20px;
+    border-right: 1px solid var(--line);
+  }
+  .chart-box:last-child { border-right: none; }
+  .chart-title {
+    font-size: 13px;
+    font-weight: 600;
+    margin-bottom: 2px;
+  }
+  .chart-subtitle {
+    font-size: 11px;
+    color: var(--ink-faint);
+    margin-bottom: 16px;
+  }
+  .chart-placeholder {
+    height: 160px;
+    position: relative;
+  }
+  .chart-placeholder svg { width: 100%; height: 100%; }
+  .data-source-note {
+    margin-top: 12px;
+    padding: 8px 12px;
+    background: var(--bg-code);
+    border-radius: 6px;
+    font-size: 11px;
+    color: var(--ink-muted);
+    line-height: 1.5;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .data-source-note .label {
+    color: var(--ink-faint);
+    text-transform: uppercase;
+    font-size: 10px;
+  }
+  .conclusion-box {
+    padding: 20px 24px;
+    background: var(--bg-soft);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+  }
+  .conclusion-box h4 {
+    font-size: 14px;
+    font-weight: 700;
+    margin-bottom: 6px;
+  }
+  .conclusion-box p {
+    font-size: 14px;
+    color: var(--ink-soft);
+    line-height: 1.6;
+  }
+
+  /* ── Modules ── */
+  .modules-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 60px;
+    font-size: 14px;
+  }
+  .modules-table th {
+    text-align: left;
+    padding: 12px 16px;
+    border-bottom: 2px solid var(--ink);
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .modules-table td {
+    padding: 16px;
+    border-bottom: 1px solid var(--line);
+    vertical-align: top;
+  }
+  .modules-table tr:hover { background: var(--bg-soft); }
+  .modules-table .mod-num {
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--ink-faint);
+    font-size: 12px;
+  }
+  .modules-table .mod-name {
+    font-weight: 700;
+    font-size: 15px;
+  }
+  .modules-table .mod-desc {
+    color: var(--ink-muted);
+    font-size: 13px;
+  }
+  .modules-table .mod-tags {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+  .mod-tag {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: var(--ink-muted);
+    background: var(--bg-code);
+    border: 1px solid var(--line);
+    padding: 2px 6px;
+    border-radius: 3px;
+  }
+
+  /* ── Footer ── */
+  footer {
+    max-width: var(--max-w);
+    margin: 0 auto;
+    padding: 32px 40px;
+    border-top: 1px solid var(--line);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 13px;
+    color: var(--ink-faint);
+  }
+  footer code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+  }
+
+  @media (max-width: 768px) {
+    .flow { grid-template-columns: 1fr; }
+    .flow-step { border-right: none; border-bottom: 1px solid var(--line); }
+    .flow-step:last-child { border-bottom: none; }
+    .chart-row { grid-template-columns: 1fr; }
+    .chart-box { border-right: none; border-bottom: 1px solid var(--line); }
+    .chart-box:last-child { border-bottom: none; }
+    .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+    .kpi-card:nth-child(2) { border-right: none; }
+    .nav-links { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="logo">
+    <div class="logo-mark">R</div>
+    Reportify
+  </div>
+  <div class="nav-links">
+    <a href="#flow">Flow</a>
+    <a href="#demo">Demo</a>
+    <a href="#report">Report</a>
+    <a href="#modules">Modules</a>
+    <a href="#" class="nav-cta">GitHub</a>
+  </div>
+</nav>
+
+<section class="hero">
+  <h1>Ask your data<br>a question.<br>Get a <span class="mono">report.html</span></h1>
+  <p class="hero-lead">Reportify 接入 PostgreSQL，Agent 理解字段类型和统计特征，调用 Pandas 分析工具，生成带 ECharts 图表的自包含 HTML 报告。不是 Markdown，不是截图——是可分享、可追溯的真实文件。</p>
+  <div class="hero-actions">
+    <a href="#demo" class="btn-primary">View Demo</a>
+    <a href="#modules" class="btn-text">Architecture</a>
+  </div>
+</section>
+
+<div class="code-block">
+  <div class="code-window">
+    <div class="code-header">
+      <div class="code-dot" style="background:#FF5F57;"></div>
+      <div class="code-dot" style="background:#FEBC2E;"></div>
+      <div class="code-dot" style="background:#28C840;"></div>
+      <div class="code-title">reportify — analysis session</div>
+    </div>
+    <div class="code-body">
+      <div class="code-line"><span class="code-num">1</span><span class="code-content"><span class="syntax-com"># 接入数据源</span></span></div>
+      <div class="code-line"><span class="code-num">2</span><span class="code-content"><span class="syntax-var">$</span> reportify connect postgresql://<span class="syntax-var">app_db</span></span></div>
+      <div class="code-line"><span class="code-num">3</span><span class="code-content"><span class="syntax-com"># ✓ Connected · 14 tables · 2.3M rows</span></span></div>
+      <div class="code-line"><span class="code-num">4</span><span class="code-content"></span></div>
+      <div class="code-line"><span class="code-num">5</span><span class="code-content"><span class="syntax-com"># 用自然语言描述分析需求</span></span></div>
+      <div class="code-line"><span class="code-num">6</span><span class="code-content"><span class="syntax-var">$</span> reportify ask <span class="syntax-str">"分析最近 7 天 duration 字段趋势，和上周对比"</span></span></div>
+      <div class="code-line"><span class="code-num">7</span><span class="code-content"></span></div>
+      <div class="code-line"><span class="code-num">8</span><span class="code-content"><span class="syntax-com"># Agent 执行中...</span></span></div>
+      <div class="code-line"><span class="code-num">9</span><span class="code-content"><span class="syntax-fn">inspect_dataset</span>    <span class="syntax-com">→ 14 tables identified</span></span></div>
+      <div class="code-line"><span class="code-num">10</span><span class="code-content"><span class="syntax-fn">profile_dataset</span>   <span class="syntax-com">→ duration: numeric · 48,213 values</span></span></div>
+      <div class="code-line"><span class="code-num">11</span><span class="code-content"><span class="syntax-fn">compare_periods</span>   <span class="syntax-com">→ week 1 vs week 2 computed</span></span></div>
+      <div class="code-line"><span class="code-num">12</span><span class="code-content"><span class="syntax-fn">detect_anomalies</span> <span class="syntax-com">→ 7 outliers (&gt;2σ)</span></span></div>
+      <div class="code-line"><span class="code-num">13</span><span class="code-content"><span class="syntax-fn">generate_report</span>   <span class="syntax-com">→ Schema validated · HTML rendered</span></span></div>
+      <div class="code-line"><span class="code-num">14</span><span class="code-content"></span></div>
+      <div class="code-line"><span class="code-num">15</span><span class="code-content"><span class="syntax-key">✓</span> Report saved: <span class="syntax-var">reports/2026-11-15_duration.html</span> <span class="syntax-com">(8.4s)</span></span></div>
+    </div>
+  </div>
+</div>
+
+<section class="section" id="flow">
+  <div class="section-header">
+    <span class="section-num">01</span>
+    <h2 class="section-title">Core Pipeline</h2>
+  </div>
+  <div class="flow">
+    <div class="flow-step">
+      <div class="flow-num">→ INPUT</div>
+      <h3>Describe</h3>
+      <p>接入 PostgreSQL，一句话描述分析需求。不需要预先理解字段含义，Agent 自动画像数据。</p>
+      <div class="flow-code">reportify ask "..."</div>
+    </div>
+    <div class="flow-step">
+      <div class="flow-num">→ PROCESS</div>
+      <h3>Agent Analyzes</h3>
+      <p>PydanticAI + DeepSeek 理解需求，制定分析计划，调用 Pandas 工具执行确定性计算，校验结果。</p>
+      <div class="flow-code">9 tools · PydanticAI runtime</div>
+    </div>
+    <div class="flow-step">
+      <div class="flow-num">→ OUTPUT</div>
+      <h3>Report</h3>
+      <p>Pydantic Schema → Jinja2 渲染 → 自包含 HTML。含 ECharts 图表、KPI、分析结论、数据来源追溯。</p>
+      <div class="flow-code">report.html · self-contained</div>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="demo">
+  <div class="section-header">
+    <span class="section-num">02</span>
+    <h2 class="section-title">Interactive Session</h2>
+  </div>
+  <div class="chat-demo">
+    <div class="chat-header">
+      <h3>Analysis Session</h3>
+      <div class="meta">postgres://app_db · 14 tables · 2.3M rows</div>
+    </div>
+    <div class="chat-body">
+      <div class="chat-msg user">
+        <div class="role">USER</div>
+        帮我分析最近 30 天的数据趋势，找出波动比较明显的字段。
+      </div>
+      <div class="chat-msg agent">
+        <div class="role">AGENT</div>
+        已获取数据源结构，识别字段画像，执行趋势分析。
+        <div class="agent-trace">
+          <div class="trace-item"><span class="trace-status">✓</span> inspect_dataset — 14 tables, core: orders/events/users</div>
+          <div class="trace-item"><span class="trace-status">✓</span> profile_dataset — 6 time, 12 numeric, 23 categorical</div>
+          <div class="trace-item"><span class="trace-status">✓</span> analyze_trend — daily aggregation · 30 days</div>
+          <div class="trace-item"><span class="trace-status">✓</span> detect_anomalies — 3 fields with >2σ波动</div>
+          <div class="trace-item"><span class="trace-status">✓</span> generate_report — schema validated</div>
+        </div>
+      </div>
+      <div class="chat-msg user">
+        <div class="role">USER</div>
+        duration 字段波动原因？和上周对比。
+      </div>
+      <div class="chat-msg agent">
+        <div class="role">AGENT</div>
+        compare_periods 已执行。报告已生成。
+        <div class="agent-trace">
+          <div class="trace-item"><span class="trace-status">✓</span> reports/2026-11-15_duration_analysis.html</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="report">
+  <div class="section-header">
+    <span class="section-num">03</span>
+    <h2 class="section-title">Report Sample</h2>
+  </div>
+  <div class="report-preview">
+    <div class="report-header">
+      <div>
+        <h3>Duration 趋势分析 · 近 7 天 vs 前 7 天</h3>
+        <div class="report-meta">
+          <span>2026-11-15 09:32</span>
+          <span>app_db</span>
+          <span>8.4s</span>
+          <span>48,213 rows</span>
+        </div>
+      </div>
+      <div class="status">● COMPLETED</div>
+    </div>
+    <div class="report-body">
+      <div class="kpi-grid">
+        <div class="kpi-card">
+          <div class="kpi-label">Avg Duration</div>
+          <div class="kpi-value">127.4<span class="unit">s</span></div>
+          <div class="kpi-delta up">↑ 12.3%</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Max Duration</div>
+          <div class="kpi-value">342<span class="unit">s</span></div>
+          <div class="kpi-delta up">↑ 8.7%</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Anomalies</div>
+          <div class="kpi-value">7</div>
+          <div class="kpi-delta down">↓ 2</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Null Rate</div>
+          <div class="kpi-value">0.3<span class="unit">%</span></div>
+          <div class="kpi-delta up">OK</div>
+        </div>
+      </div>
+
+      <div class="chart-row">
+        <div class="chart-box">
+          <div class="chart-title">Duration 日均趋势（14 天）</div>
+          <div class="chart-subtitle">黑线本周 · 灰线上周 · 红点异常</div>
+          <div class="chart-placeholder">
+            <svg viewBox="0 0 600 160" preserveAspectRatio="none">
+              <line x1="0" y1="40" x2="600" y2="40" stroke="#F0F0F0" stroke-width="1"/>
+              <line x1="0" y1="80" x2="600" y2="80" stroke="#F0F0F0" stroke-width="1"/>
+              <line x1="0" y1="120" x2="600" y2="120" stroke="#F0F0F0" stroke-width="1"/>
+              <polygon points="0,100 50,85 100,90 150,70 200,80 250,55 300,45 350,60 400,40 450,65 500,50 550,35 600,55 600,160 0,160"
+                fill="#000" opacity="0.06"/>
+              <polyline points="0,110 50,100 100,115 150,95 200,105 250,90 300,98 350,102 400,85 450,90 500,80 550,95 600,88"
+                fill="none" stroke="#CCC" stroke-width="2" stroke-dasharray="4,3"/>
+              <polyline points="0,100 50,85 100,90 150,70 200,80 250,55 300,45 350,60 400,40 450,65 500,50 550,35 600,55"
+                fill="none" stroke="#000" stroke-width="2.5"/>
+              <circle cx="300" cy="45" r="4" fill="#DE350B"/>
+              <circle cx="550" cy="35" r="4" fill="#DE350B"/>
+            </svg>
+          </div>
+          <div class="data-source-note">
+            <span class="label">SOURCE</span> SELECT date_trunc('day', created_at), avg(duration) FROM events WHERE created_at >= '2026-11-02' GROUP BY 1
+          </div>
+        </div>
+        <div class="chart-box">
+          <div class="chart-title">Duration 分布</div>
+          <div class="chart-subtitle">近 7 天 · 50s buckets</div>
+          <div class="chart-placeholder">
+            <svg viewBox="0 0 300 160" preserveAspectRatio="none">
+              <rect x="10" y="100" width="30" height="50" fill="#000" opacity="0.5" rx="2"/>
+              <rect x="50" y="70" width="30" height="80" fill="#000" opacity="0.6" rx="2"/>
+              <rect x="90" y="40" width="30" height="110" fill="#000" opacity="0.8" rx="2"/>
+              <rect x="130" y="30" width="30" height="120" fill="#000" rx="2"/>
+              <rect x="170" y="50" width="30" height="100" fill="#000" opacity="0.7" rx="2"/>
+              <rect x="210" y="80" width="30" height="70" fill="#000" opacity="0.5" rx="2"/>
+              <rect x="250" y="95" width="30" height="55" fill="#000" opacity="0.3" rx="2"/>
+              <line x1="0" y1="150" x2="300" y2="150" stroke="#E0E0E0" stroke-width="1"/>
+            </svg>
+          </div>
+          <div class="data-source-note">
+            <span class="label">SOURCE</span> SELECT duration FROM events WHERE created_at >= '2026-11-09'
+          </div>
+        </div>
+      </div>
+
+      <div class="conclusion-box">
+        <h4>结论</h4>
+        <p>本周 Duration 日均 127.4s，较上周 113.4s 上升 12.3%。第 5-6 天出现峰值（日均超 150s），异常检测标记 7 个异常点（>2σ）。分布右移，P95 从 210s 升至 245s。建议排查第 5-6 天的系统变更或流量突增事件。</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="modules">
+  <div class="section-header">
+    <span class="section-num">04</span>
+    <h2 class="section-title">Architecture</h2>
+  </div>
+  <table class="modules-table">
+    <thead>
+      <tr>
+        <th style="width:40px;">#</th>
+        <th style="width:180px;">Module</th>
+        <th>Description</th>
+        <th style="width:200px;">Stack</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="mod-num">01</td>
+        <td class="mod-name">Data Connector</td>
+        <td class="mod-desc">统一数据源接入层。MVP 实现 PostgreSQL 连接器，可扩展接口。表结构发现、分页查询、只读安全校验。</td>
+        <td><div class="mod-tags"><span class="mod-tag">SQLAlchemy</span><span class="mod-tag">PostgreSQL</span></div></td>
+      </tr>
+      <tr>
+        <td class="mod-num">02</td>
+        <td class="mod-name">Data Profiling</td>
+        <td class="mod-desc">自动识别字段类型（数值/时间/分类/文本），计算空值、唯一值、分布、异常值。不猜测业务语义。</td>
+        <td><div class="mod-tags"><span class="mod-tag">Pandas</span></div></td>
+      </tr>
+      <tr>
+        <td class="mod-num">03</td>
+        <td class="mod-name">Agent Engine</td>
+        <td class="mod-desc">PydanticAI + DeepSeek API。理解需求、规划分析、调用工具、组织结论。LLM 只做理解，不做计算。</td>
+        <td><div class="mod-tags"><span class="mod-tag">PydanticAI</span><span class="mod-tag">DeepSeek</span></div></td>
+      </tr>
+      <tr>
+        <td class="mod-num">04</td>
+        <td class="mod-name">Analysis Engine</td>
+        <td class="mod-desc">确定性 Python 计算：趋势、分布、对比、异常检测。每个结果含计算口径、数据范围、样本量。</td>
+        <td><div class="mod-tags"><span class="mod-tag">Pandas</span></div></td>
+      </tr>
+      <tr>
+        <td class="mod-num">05</td>
+        <td class="mod-name">Report Engine</td>
+        <td class="mod-desc">Pydantic Schema → Jinja2 模板 → 自包含 HTML。KPI 卡片、ECharts 图表、数据表格、来源追溯。禁止 LLM 生成 HTML。</td>
+        <td><div class="mod-tags"><span class="mod-tag">Jinja2</span><span class="mod-tag">ECharts</span><span class="mod-tag">Pydantic</span></div></td>
+      </tr>
+      <tr>
+        <td class="mod-num">06</td>
+        <td class="mod-name">Task & Scheduler</td>
+        <td class="mod-desc">定时报告、Cron 配置、失败重试、幂等控制。ARQ + Redis 异步队列。报告按日期归档。</td>
+        <td><div class="mod-tags"><span class="mod-tag">ARQ</span><span class="mod-tag">Redis</span></div></td>
+      </tr>
+    </tbody>
+  </table>
+</section>
+
+<footer>
+  <div>Reportify · MIT License</div>
+  <code>Python 3.12 · FastAPI · PydanticAI · DeepSeek · Pandas · ECharts</code>
+</footer>
+
+</body>
+</html>
