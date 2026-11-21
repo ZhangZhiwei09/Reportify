@@ -1,0 +1,18 @@
+schema_version: 1
+name: default
+display_name: 默认报告
+description: 最小报告模板，用于本地验证。
+language: zh-CN
+sections:
+  - id: overview
+    title: 概览
+    required: true
+    blocks: [kpi, conclusion]
+  - id: trends
+    title: 趋势
+    required: false
+    blocks: [line_chart, table, conclusion]
+output:
+  include_sources: true
+  include_methodology: true
+  self_contained: true
