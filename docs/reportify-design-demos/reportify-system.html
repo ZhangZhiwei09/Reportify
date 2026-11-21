@@ -1,0 +1,985 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Reportify · 数据分析工作台</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper: #F5F0E8;
+    --paper-deep: #EDE6D8;
+    --paper-card: #FAF6EF;
+    --paper-card-hover: #F9F3EA;
+    --ink: #1A1A1A;
+    --ink-soft: #4A4A4A;
+    --ink-muted: #8A8A8A;
+    --ink-faint: #B5B0A5;
+    --terracotta: #CC785C;
+    --terracotta-deep: #B5624A;
+    --terracotta-light: #E8D0C2;
+    --terracotta-bg: #F4E4DC;
+    --line: #D8D0C0;
+    --line-soft: #E8E0D0;
+    --green: #5B8C5A;
+    --green-light: #D4E4D3;
+    --amber: #D4A547;
+    --amber-light: #F0E4C4;
+    --red: #C45B5B;
+    --red-light: #F0D4D4;
+    --blue: #4A7BA8;
+    --blue-light: #D0DFEE;
+    --sidebar-w: 232px;
+    --topbar-h: 60px;
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Inter', -apple-system, system-ui, sans-serif;
+    background: var(--paper);
+    color: var(--ink);
+    line-height: 1.6;
+    font-size: 13px;
+    -webkit-font-smoothing: antialiased;
+    overflow: hidden;
+  }
+  .app { display: flex; height: 100vh; }
+
+  /* ══ Sidebar ══ */
+  .sidebar {
+    width: var(--sidebar-w);
+    flex-shrink: 0;
+    background: var(--paper-deep);
+    border-right: 1px solid var(--line);
+    display: flex;
+    flex-direction: column;
+  }
+  .brand {
+    height: var(--topbar-h);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 0 20px;
+    border-bottom: 1px solid var(--line);
+  }
+  .brand-mark {
+    width: 28px; height: 28px;
+    background: var(--terracotta);
+    border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+    color: #fff; font-weight: 700; font-size: 15px;
+    font-family: 'Fraunces', serif;
+  }
+  .brand-name {
+    font-family: 'Fraunces', serif;
+    font-size: 18px; font-weight: 600; letter-spacing: -0.3px;
+  }
+  .brand-ver {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px; color: var(--ink-faint);
+    margin-left: auto; align-self: center;
+  }
+  .nav-group { padding: 18px 12px 0; flex: 1; }
+  .nav-label {
+    font-size: 10px; text-transform: uppercase; letter-spacing: 1px;
+    color: var(--ink-faint); font-weight: 600; padding: 0 10px 8px;
+  }
+  .nav-item {
+    display: flex; align-items: center; gap: 11px;
+    padding: 9px 11px; margin-bottom: 3px;
+    border-radius: 5px; cursor: pointer;
+    color: var(--ink-soft); font-size: 13px; font-weight: 500;
+    transition: background 0.15s, color 0.15s;
+    border: 1px solid transparent;
+  }
+  .nav-item:hover { background: rgba(255,255,255,0.4); }
+  .nav-item.active {
+    background: var(--paper-card);
+    color: var(--terracotta-deep);
+    border-color: var(--line);
+    font-weight: 600;
+  }
+  .nav-ico {
+    width: 18px; height: 18px; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px; opacity: 0.8;
+  }
+  .nav-item.active .nav-ico { opacity: 1; }
+  .nav-count {
+    margin-left: auto; font-family: 'JetBrains Mono', monospace;
+    font-size: 10px; color: var(--ink-faint);
+    background: var(--paper); padding: 1px 6px; border-radius: 8px;
+  }
+  .sidebar-footer {
+    padding: 14px 18px; border-top: 1px solid var(--line);
+    font-size: 11px; color: var(--ink-muted);
+  }
+  .status-dot {
+    display: inline-block; width: 7px; height: 7px;
+    background: var(--green); border-radius: 50%; margin-right: 6px;
+  }
+
+  /* ══ Main ══ */
+  .main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+  .topbar {
+    height: var(--topbar-h); flex-shrink: 0;
+    background: var(--paper-card); border-bottom: 1px solid var(--line);
+    display: flex; align-items: center; padding: 0 28px; gap: 16px;
+  }
+  .crumb { font-size: 13px; color: var(--ink-muted); }
+  .crumb b { color: var(--ink); font-weight: 600; }
+  .ds-picker {
+    margin-left: auto; display: flex; align-items: center; gap: 8px;
+    background: var(--paper); border: 1px solid var(--line);
+    padding: 6px 12px; border-radius: 5px; font-size: 12px;
+    cursor: pointer; transition: border-color 0.15s;
+  }
+  .ds-picker:hover { border-color: var(--terracotta); }
+  .ds-picker .pg-ico {
+    width: 16px; height: 16px; border-radius: 3px;
+    background: var(--blue-light); color: #2C5378;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 9px; font-weight: 700; font-family: 'JetBrains Mono', monospace;
+  }
+  .ds-picker .ds-name { font-weight: 600; color: var(--ink); }
+  .ds-picker .ds-sub { color: var(--ink-muted); font-family: 'JetBrains Mono', monospace; font-size: 11px; }
+  .user-avatar {
+    width: 30px; height: 30px; border-radius: 50%;
+    background: var(--terracotta-bg); color: var(--terracotta-deep);
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 600; font-size: 12px; border: 1px solid var(--terracotta-light);
+  }
+  .content { flex: 1; overflow-y: auto; padding: 24px 28px 40px; }
+  .view { display: none; max-width: 1360px; margin: 0 auto; }
+  .view.active { display: block; }
+
+  /* ══ View header ══ */
+  .view-head { margin-bottom: 20px; }
+  .view-head h2 {
+    font-family: 'Fraunces', serif; font-size: 22px; font-weight: 600;
+    letter-spacing: -0.3px; margin-bottom: 4px;
+  }
+  .view-head p { color: var(--ink-muted); font-size: 12px; }
+  .head-actions { float: right; display: flex; gap: 8px; margin-top: -34px; }
+  .btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 7px 14px; border-radius: 5px; font-size: 12px;
+    font-weight: 500; cursor: pointer; border: 1px solid var(--line);
+    background: var(--paper-card); color: var(--ink-soft);
+    font-family: 'Inter', sans-serif; transition: all 0.15s;
+  }
+  .btn:hover { border-color: var(--terracotta); color: var(--terracotta-deep); }
+  .btn-primary { background: var(--terracotta); color: #fff; border-color: var(--terracotta); }
+  .btn-primary:hover { background: var(--terracotta-deep); color: #fff; }
+
+  /* ══ Cards / generic ══ */
+  .card {
+    background: var(--paper-card); border: 1px solid var(--line);
+    border-radius: 6px;
+  }
+  .card-head {
+    padding: 12px 16px; border-bottom: 1px solid var(--line-soft);
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .card-head h3 { font-size: 13px; font-weight: 600; }
+  .card-head .sub { font-size: 11px; color: var(--ink-muted); font-family: 'JetBrains Mono', monospace; }
+
+  /* ══ Analysis workspace (2-col) ══ */
+  .workspace { display: grid; grid-template-columns: minmax(340px, 0.9fr) minmax(420px, 1.1fr); gap: 16px; }
+  .session-panel { display: flex; flex-direction: column; height: calc(100vh - 200px); min-height: 560px; }
+  .session-head {
+    padding: 13px 16px; border-bottom: 1px solid var(--line-soft);
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .session-head h3 { font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+  .session-head .sid { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--ink-faint); }
+  .chat-stream { flex: 1; overflow-y: auto; padding: 18px 16px; }
+  .msg { margin-bottom: 18px; display: flex; gap: 10px; }
+  .msg-avatar {
+    width: 26px; height: 26px; border-radius: 5px; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px; font-weight: 700; font-family: 'JetBrains Mono', monospace;
+  }
+  .msg.user .msg-avatar { background: var(--ink); color: var(--paper-card); }
+  .msg.agent .msg-avatar { background: var(--terracotta); color: #fff; }
+  .msg-body { flex: 1; min-width: 0; }
+  .msg-meta { font-size: 10px; color: var(--ink-faint); margin-bottom: 5px; font-family: 'JetBrains Mono', monospace; }
+  .msg-meta b { color: var(--ink-soft); font-family: 'Inter', sans-serif; }
+  .bubble {
+    padding: 10px 13px; border-radius: 6px; font-size: 12.5px; line-height: 1.7;
+    color: var(--ink-soft);
+  }
+  .msg.user .bubble { background: var(--paper-deep); border: 1px solid var(--line); }
+  .msg.agent .bubble { background: var(--paper-card); border: 1px solid var(--line); }
+  .bubble code {
+    font-family: 'JetBrains Mono', monospace; font-size: 11px;
+    background: var(--paper-deep); padding: 1px 5px; border-radius: 3px;
+    color: var(--terracotta-deep);
+  }
+  .bubble .inline-plan {
+    margin-top: 9px; padding-top: 9px; border-top: 1px dashed var(--line);
+    display: flex; flex-direction: column; gap: 5px;
+  }
+  .plan-mini {
+    display: flex; align-items: center; gap: 7px; font-size: 11.5px;
+  }
+  .plan-mini .n {
+    width: 16px; height: 16px; border-radius: 3px; flex-shrink:0;
+    background: var(--terracotta-bg); color: var(--terracotta-deep);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 9px; font-weight: 700; font-family: 'JetBrains Mono', monospace;
+  }
+  .composer { padding: 12px; border-top: 1px solid var(--line-soft); }
+  .composer-box {
+    border: 1px solid var(--line); border-radius: 6px; background: var(--paper);
+    padding: 10px 12px; transition: border-color 0.15s;
+  }
+  .composer-box:focus-within { border-color: var(--terracotta); }
+  .composer-input {
+    width: 100%; border: none; outline: none; background: transparent;
+    font-family: 'Inter', sans-serif; font-size: 12.5px; color: var(--ink);
+    resize: none; min-height: 42px; line-height: 1.6;
+  }
+  .composer-input::placeholder { color: var(--ink-faint); }
+  .composer-bar { display: flex; align-items: center; gap: 6px; margin-top: 8px; }
+  .chip {
+    font-size: 10px; padding: 3px 8px; border-radius: 10px;
+    background: var(--paper-deep); border: 1px solid var(--line);
+    color: var(--ink-muted); cursor: pointer; transition: all 0.15s;
+  }
+  .chip:hover { border-color: var(--terracotta); color: var(--terracotta-deep); }
+  .send-btn {
+    margin-left: auto; width: 30px; height: 30px; border-radius: 5px;
+    background: var(--terracotta); color: #fff; border: none; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; font-size: 14px;
+  }
+  .send-btn:hover { background: var(--terracotta-deep); }
+
+  /* ══ Agent execution panel ══ */
+  .exec-panel { display: flex; flex-direction: column; height: calc(100vh - 200px); min-height: 560px; }
+  .exec-head {
+    padding: 13px 16px; border-bottom: 1px solid var(--line-soft);
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .exec-head h3 { font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+  .exec-scroll { flex: 1; overflow-y: auto; padding: 14px 16px; }
+  .exec-summary {
+    display: flex; gap: 18px; padding: 11px 14px; margin-bottom: 14px;
+    background: var(--terracotta-bg); border: 1px solid var(--terracotta-light);
+    border-radius: 5px; flex-wrap: wrap;
+  }
+  .exec-summary .item { font-size: 11px; }
+  .exec-summary .item .k { color: var(--ink-muted); display: block; margin-bottom: 1px; }
+  .exec-summary .item .v { color: var(--terracotta-deep); font-weight: 600; font-family: 'JetBrains Mono', monospace; font-size: 12px; }
+  .badge {
+    display: inline-block; font-size: 10px; font-weight: 600;
+    padding: 2px 8px; border-radius: 3px;
+  }
+  .badge-ok { background: var(--green-light); color: #3A6A3A; }
+  .badge-run { background: var(--amber-light); color: #8A7020; }
+  .badge-info { background: var(--blue-light); color: #2C5378; }
+  .badge-plain { background: var(--paper-deep); color: var(--ink-muted); }
+
+  .step {
+    display: flex; gap: 11px; padding: 9px 0;
+    border-bottom: 1px solid var(--line-soft); position: relative;
+  }
+  .step:last-child { border-bottom: none; }
+  .step:not(:last-child)::before {
+    content: ''; position: absolute; left: 11px; top: 34px; bottom: -9px;
+    width: 1px; background: var(--line);
+  }
+  .step-ico {
+    width: 23px; height: 23px; border-radius: 5px; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10px; font-weight: 700; font-family: 'JetBrains Mono', monospace;
+    position: relative; z-index: 1;
+  }
+  .step-ico.plan { background: var(--amber-light); color: #8A7020; }
+  .step-ico.tool { background: var(--blue-light); color: #2C5378; }
+  .step-ico.result { background: var(--green-light); color: #3A6A3A; }
+  .step-body { flex: 1; min-width: 0; }
+  .step-title { font-size: 12px; font-weight: 600; color: var(--ink); display: flex; align-items: center; gap: 7px; }
+  .step-title code {
+    font-family: 'JetBrains Mono', monospace; font-size: 11px;
+    background: var(--paper-deep); padding: 1px 5px; border-radius: 3px;
+    color: var(--terracotta-deep); font-weight: 500;
+  }
+  .step-desc { font-size: 11px; color: var(--ink-muted); margin-top: 3px; line-height: 1.55; }
+  .step-time { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--ink-faint); flex-shrink: 0; margin-top: 3px; }
+  .check { color: var(--green); font-size: 12px; }
+
+  .artifact {
+    margin: 14px; padding: 14px;
+    background: var(--paper); border: 1px dashed var(--terracotta-light);
+    border-radius: 6px;
+  }
+  .artifact-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.8px; color: var(--terracotta-deep); font-weight: 600; margin-bottom: 9px; }
+  .artifact-card {
+    display: flex; align-items: center; gap: 12px;
+    background: var(--paper-card); border: 1px solid var(--line);
+    border-radius: 5px; padding: 11px 13px;
+  }
+  .artifact-ico {
+    width: 34px; height: 38px; flex-shrink: 0;
+    background: var(--terracotta-bg); border: 1px solid var(--terracotta-light);
+    border-radius: 4px; display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    font-family: 'JetBrains Mono', monospace; font-size: 9px;
+    color: var(--terracotta-deep); font-weight: 600; gap: 1px;
+  }
+  .artifact-info { flex: 1; min-width: 0; }
+  .artifact-info .t { font-size: 12px; font-weight: 600; color: var(--ink); }
+  .artifact-info .m { font-size: 10px; color: var(--ink-muted); font-family: 'JetBrains Mono', monospace; margin-top: 2px; }
+  .open-report {
+    font-size: 11px; font-weight: 600; color: #fff; background: var(--terracotta);
+    padding: 6px 11px; border-radius: 4px; text-decoration: none; white-space: nowrap;
+  }
+  .open-report:hover { background: var(--terracotta-deep); }
+
+  /* ══ Generic table ══ */
+  .tbl-wrap { background: var(--paper-card); border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+  table.tbl { width: 100%; border-collapse: collapse; font-size: 12px; }
+  table.tbl thead { background: var(--paper-deep); }
+  table.tbl th {
+    text-align: left; padding: 10px 15px; font-weight: 600; color: var(--ink-soft);
+    font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.5px;
+    border-bottom: 1px solid var(--line); white-space: nowrap;
+  }
+  table.tbl td { padding: 10px 15px; border-bottom: 1px solid var(--line-soft); color: var(--ink-soft); }
+  table.tbl tr:last-child td { border-bottom: none; }
+  table.tbl tr:hover td { background: var(--paper-card-hover); }
+  table.tbl .mono { font-family: 'JetBrains Mono', monospace; font-size: 11px; }
+  table.tbl .strong { color: var(--ink); font-weight: 600; }
+  table.tbl .link { color: var(--terracotta-deep); font-weight: 600; cursor: pointer; text-decoration: none; }
+  table.tbl .link:hover { text-decoration: underline; }
+  .row-actions { display: flex; gap: 10px; }
+  .row-actions span { color: var(--ink-muted); cursor: pointer; font-size: 11px; }
+  .row-actions span:hover { color: var(--terracotta-deep); }
+
+  /* ══ Data source view ══ */
+  .stat-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 18px; }
+  .stat-card { background: var(--paper-card); border: 1px solid var(--line); border-radius: 6px; padding: 14px 16px; }
+  .stat-card .k { font-size: 11px; color: var(--ink-muted); margin-bottom: 5px; }
+  .stat-card .v { font-family: 'Fraunces', serif; font-size: 24px; font-weight: 600; letter-spacing: -0.5px; }
+  .stat-card .v small { font-family: 'Inter', sans-serif; font-size: 12px; color: var(--ink-muted); font-weight: 400; }
+
+  .ds-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .ds-card { background: var(--paper-card); border: 1px solid var(--line); border-radius: 6px; padding: 18px; }
+  .ds-card.connected { border-color: var(--green); }
+  .ds-card.disconnected { opacity: 0.72; border-style: dashed; }
+  .ds-top { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 14px; }
+  .ds-logo {
+    width: 40px; height: 40px; border-radius: 6px; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 13px;
+  }
+  .ds-logo.pg { background: var(--blue-light); color: #2C5378; }
+  .ds-logo.my { background: var(--amber-light); color: #8A7020; }
+  .ds-logo.cs { background: var(--green-light); color: #3A6A3A; }
+  .ds-logo.api { background: var(--terracotta-bg); color: var(--terracotta-deep); }
+  .ds-top .t { font-size: 14px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+  .ds-top .s { font-size: 11px; color: var(--ink-muted); font-family: 'JetBrains Mono', monospace; margin-top: 2px; }
+  .kv { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px dashed var(--line-soft); font-size: 11.5px; }
+  .kv:last-child { border-bottom: none; }
+  .kv .k { color: var(--ink-muted); }
+  .kv .v { font-family: 'JetBrains Mono', monospace; color: var(--ink-soft); }
+  .coming {
+    font-size: 10px; padding: 2px 7px; border-radius: 3px;
+    background: var(--paper-deep); color: var(--ink-faint); font-weight: 500;
+  }
+  .section-label {
+    font-size: 11px; text-transform: uppercase; letter-spacing: 0.8px;
+    color: var(--ink-muted); font-weight: 600; margin: 22px 0 10px;
+  }
+
+  /* ══ Scheduler view ══ */
+  .task-card { background: var(--paper-card); border: 1px solid var(--line); border-radius: 6px; padding: 15px 16px; margin-bottom: 11px; }
+  .task-top { display: flex; align-items: center; gap: 12px; margin-bottom: 11px; }
+  .task-ico {
+    width: 32px; height: 32px; border-radius: 5px; flex-shrink: 0;
+    background: var(--amber-light); color: #8A7020;
+    display: flex; align-items: center; justify-content: center; font-size: 15px;
+  }
+  .task-top .t { font-size: 13px; font-weight: 600; }
+  .task-top .cron { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--terracotta-deep); background: var(--terracotta-bg); padding: 2px 8px; border-radius: 3px; }
+  .task-meta { display: flex; gap: 28px; flex-wrap: wrap; }
+  .task-meta .m .k { font-size: 10px; color: var(--ink-faint); text-transform: uppercase; letter-spacing: 0.5px; }
+  .task-meta .m .v { font-size: 12px; color: var(--ink-soft); font-family: 'JetBrains Mono', monospace; margin-top: 2px; }
+  .toggle {
+    margin-left: auto; width: 34px; height: 19px; border-radius: 10px;
+    background: var(--green); position: relative; cursor: pointer; flex-shrink: 0;
+  }
+  .toggle::after {
+    content: ''; position: absolute; width: 13px; height: 13px; border-radius: 50%;
+    background: #fff; top: 3px; right: 3px; transition: right 0.2s;
+  }
+  .toggle.off { background: var(--ink-faint); }
+  .toggle.off::after { right: 18px; }
+
+  /* ══ Metadata view ══ */
+  .notice {
+    background: var(--blue-light); border: 1px solid #B8CEE0; border-radius: 5px;
+    padding: 11px 14px; font-size: 11.5px; color: #2C5378; margin-bottom: 16px;
+    display: flex; gap: 9px; align-items: flex-start;
+  }
+  .notice .i { font-weight: 700; font-size: 13px; }
+  .type-badge {
+    display: inline-block; font-size: 9px; font-weight: 600; padding: 2px 6px;
+    border-radius: 3px; text-transform: uppercase; letter-spacing: 0.3px;
+    font-family: 'Inter', sans-serif;
+  }
+  .type-numeric { background: var(--blue-light); color: #2C5378; }
+  .type-temporal { background: var(--amber-light); color: #8A7020; }
+  .type-categorical { background: var(--terracotta-bg); color: var(--terracotta-deep); }
+  .type-text { background: var(--green-light); color: #3A6A3A; }
+  .tag { display: inline-block; font-size: 10px; padding: 2px 7px; border-radius: 9px; background: var(--paper-deep); color: var(--ink-soft); margin: 1px 3px 1px 0; border: 1px solid var(--line); }
+  .tag.user { background: var(--terracotta-bg); color: var(--terracotta-deep); border-color: var(--terracotta-light); }
+
+  @media (max-width: 1100px) {
+    .workspace { grid-template-columns: 1fr; }
+    .session-panel, .exec-panel { height: auto; }
+    .ds-grid { grid-template-columns: 1fr; }
+    .stat-row { grid-template-columns: repeat(2, 1fr); }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- ══════════ Sidebar ══════════ -->
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-mark">R</div>
+      <div class="brand-name">Reportify</div>
+      <div class="brand-ver">v0.1</div>
+    </div>
+    <nav class="nav-group">
+      <div class="nav-label">工作区</div>
+      <div class="nav-item active" data-view="analysis">
+        <span class="nav-ico">◈</span> 新建分析
+      </div>
+      <div class="nav-item" data-view="reports">
+        <span class="nav-ico">▤</span> 报告库 <span class="nav-count">24</span>
+      </div>
+      <div class="nav-item" data-view="scheduler">
+        <span class="nav-ico">◷</span> 定时任务 <span class="nav-count">3</span>
+      </div>
+      <div class="nav-label" style="margin-top:18px;">配置</div>
+      <div class="nav-item" data-view="sources">
+        <span class="nav-ico">⛁</span> 数据源 <span class="nav-count">1</span>
+      </div>
+      <div class="nav-item" data-view="metadata">
+        <span class="nav-ico">⌗</span> 字段元数据
+      </div>
+    </nav>
+    <div class="sidebar-footer">
+      <span class="status-dot"></span>Agent 服务运行中<br>
+      <span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--ink-faint);">DeepSeek API · 本地实例</span>
+    </div>
+  </aside>
+
+  <!-- ══════════ Main ══════════ -->
+  <div class="main">
+    <div class="topbar">
+      <div class="crumb">工作区 / <b id="crumb-current">新建分析</b></div>
+      <div class="ds-picker">
+        <span class="pg-ico">PG</span>
+        <span class="ds-name">analytics_db</span>
+        <span class="ds-sub">· events</span>
+        <span style="color:var(--ink-faint);font-size:10px;">▾</span>
+      </div>
+      <div class="user-avatar">L</div>
+    </div>
+
+    <div class="content">
+
+      <!-- ════ VIEW: 分析工作台 ════ -->
+      <div class="view active" id="view-analysis">
+        <div class="view-head">
+          <h2>分析工作台</h2>
+          <p>用自然语言描述需求，Agent 自动规划分析步骤、调用工具、生成报告</p>
+        </div>
+
+        <div class="workspace">
+          <!-- Chat / session -->
+          <div class="card session-panel">
+            <div class="session-head">
+              <h3>◈ 分析会话</h3>
+              <span class="sid">session_s8f2a1</span>
+            </div>
+            <div class="chat-stream">
+              <div class="msg user">
+                <div class="msg-avatar">L</div>
+                <div class="msg-body">
+                  <div class="msg-meta"><b>你</b> · 21:02:38</div>
+                  <div class="bubble">帮我分析最近 30 天的数据趋势，找出波动比较明显的字段。</div>
+                </div>
+              </div>
+              <div class="msg agent">
+                <div class="msg-avatar">R</div>
+                <div class="msg-body">
+                  <div class="msg-meta"><b>Reportify Agent</b> · 21:02:39</div>
+                  <div class="bubble">
+                    已连接 <code>analytics_db.events</code>（486,209 行，18 字段）。自动识别到 7 个数值字段、1 个时间字段、8 个分类字段、2 个文本字段。我制定了以下分析计划：
+                    <div class="inline-plan">
+                      <div class="plan-mini"><span class="n">1</span> 获取表结构与字段画像</div>
+                      <div class="plan-mini"><span class="n">2</span> 计算 30 天字段趋势并找波动字段</div>
+                      <div class="plan-mini"><span class="n">3</span> 分布分析 + 异常检测</div>
+                      <div class="plan-mini"><span class="n">4</span> 周期对比 + 生成报告</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="msg agent">
+                <div class="msg-avatar">R</div>
+                <div class="msg-body">
+                  <div class="msg-meta"><b>Reportify Agent</b> · 21:02:51</div>
+                  <div class="bubble">
+                    ✅ 分析完成。发现 <b>3 个高波动字段</b>：<code>duration</code>(CV 0.68)、<code>retry_count</code>(0.62)、<code>response_size</code>(0.55)；检测到 37 次异常，集中在 11/12 和 11/14。报告已生成 →
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="composer">
+              <div class="composer-box">
+                <textarea class="composer-input" placeholder="继续追问，或描述新的分析需求…"></textarea>
+                <div class="composer-bar">
+                  <span class="chip">📈 趋势分析</span>
+                  <span class="chip">⚠ 异常检测</span>
+                  <span class="chip">📊 周期对比</span>
+                  <button class="send-btn">↑</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Agent execution -->
+          <div class="card exec-panel">
+            <div class="exec-head">
+              <h3>⚙ Agent 执行过程 <span class="badge badge-ok">已完成</span></h3>
+              <span class="sub" style="font-size:10px;color:var(--ink-muted);font-family:'JetBrains Mono',monospace;">实时推送 · WebSocket</span>
+            </div>
+            <div class="exec-scroll">
+              <div class="exec-summary">
+                <div class="item"><span class="k">总耗时</span><span class="v">12.4s</span></div>
+                <div class="item"><span class="k">工具调用</span><span class="v">7 次</span></div>
+                <div class="item"><span class="k">重试</span><span class="v">0 次</span></div>
+                <div class="item"><span class="k">数据范围</span><span class="v">486,209 行</span></div>
+              </div>
+
+              <div class="step">
+                <div class="step-ico plan">P</div>
+                <div class="step-body">
+                  <div class="step-title">制定分析计划 <span class="check">✓</span></div>
+                  <div class="step-desc">解析需求 → 识别时间范围（近30天）、分析目标（趋势+波动）→ 规划 4 步执行路径</div>
+                </div>
+                <div class="step-time">0.0s</div>
+              </div>
+              <div class="step">
+                <div class="step-ico tool">T</div>
+                <div class="step-body">
+                  <div class="step-title"><code>inspect_dataset</code> <span class="check">✓</span></div>
+                  <div class="step-desc">读取 events 表结构 → 18 字段 · DDL 只读校验通过</div>
+                </div>
+                <div class="step-time">0.4s</div>
+              </div>
+              <div class="step">
+                <div class="step-ico tool">T</div>
+                <div class="step-body">
+                  <div class="step-title"><code>profile_dataset</code> <span class="check">✓</span></div>
+                  <div class="step-desc">类型识别 · 空值率 · 唯一值 · 分布统计 → 7 数值 / 1 时间 / 8 分类 / 2 文本</div>
+                </div>
+                <div class="step-time">3.6s</div>
+              </div>
+              <div class="step">
+                <div class="step-ico tool">T</div>
+                <div class="step-body">
+                  <div class="step-title"><code>analyze_trend</code> <span class="check">✓</span></div>
+                  <div class="step-desc">7 个数值字段日均值趋势 · 对比前 30 天 · duration 波动最显著（CV 0.68）</div>
+                </div>
+                <div class="step-time">5.1s</div>
+              </div>
+              <div class="step">
+                <div class="step-ico tool">T</div>
+                <div class="step-body">
+                  <div class="step-title"><code>analyze_distribution</code> + <code>detect_anomalies</code> <span class="check">✓</span></div>
+                  <div class="step-desc">偏度 1.8 右偏分布 · Z-score&gt;3σ 检测到 37 次异常</div>
+                </div>
+                <div class="step-time">7.8s</div>
+              </div>
+              <div class="step">
+                <div class="step-ico tool">T</div>
+                <div class="step-body">
+                  <div class="step-title"><code>compare_periods</code> <span class="check">✓</span></div>
+                  <div class="step-desc">近 7 天 vs 前 7 天 · duration ↑22% · retry_count ↑15%</div>
+                </div>
+                <div class="step-time">9.2s</div>
+              </div>
+              <div class="step">
+                <div class="step-ico result">R</div>
+                <div class="step-body">
+                  <div class="step-title">生成报告 <span class="check">✓</span></div>
+                  <div class="step-desc">输出 Report Schema → Pydantic 校验通过 → Jinja2 渲染为静态 HTML</div>
+                </div>
+                <div class="step-time">12.4s</div>
+              </div>
+            </div>
+
+            <div class="artifact">
+              <div class="artifact-label">✦ 生成的产物</div>
+              <div class="artifact-card">
+                <div class="artifact-ico">HTML<br>◫</div>
+                <div class="artifact-info">
+                  <div class="t">最近 30 天数据趋势分析报告</div>
+                  <div class="m">rpt_20261116_090342_a1b2 · 412 KB · 7 图表</div>
+                </div>
+                <a class="open-report" href="reportify-dashboard.html" target="_blank">查看报告 ↗</a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ════ VIEW: 报告库 ════ -->
+      <div class="view" id="view-reports">
+        <div class="view-head">
+          <h2>报告库</h2>
+          <p>所有生成的 HTML 报告，按日期归档，可随时查看或下载</p>
+          <div class="head-actions"><button class="btn btn-primary">+ 新建分析</button></div>
+        </div>
+        <div class="stat-row">
+          <div class="stat-card"><div class="k">报告总数</div><div class="v">24</div></div>
+          <div class="stat-card"><div class="k">即时分析</div><div class="v">9</div></div>
+          <div class="stat-card"><div class="k">定时生成</div><div class="v">15</div></div>
+          <div class="stat-card"><div class="k">本月新增</div><div class="v">18</div></div>
+        </div>
+        <div class="tbl-wrap">
+          <table class="tbl">
+            <thead><tr><th>报告名称</th><th>类型</th><th>数据源</th><th>样本量</th><th>生成时间</th><th>状态</th><th>操作</th></tr></thead>
+            <tbody>
+              <tr>
+                <td class="strong">最近 30 天数据趋势分析报告</td>
+                <td><span class="badge badge-info">即时</span></td>
+                <td class="mono">analytics_db</td>
+                <td class="mono">486,209</td>
+                <td class="mono">2026-11-16 09:03</td>
+                <td><span class="badge badge-ok">已生成</span></td>
+                <td><div class="row-actions"><a class="link" href="reportify-dashboard.html" target="_blank">查看</a><span>下载</span></div></td>
+              </tr>
+              <tr>
+                <td class="strong">每日运营数据报告 · 2026-11-16</td>
+                <td><span class="badge badge-ok">定时</span></td>
+                <td class="mono">analytics_db</td>
+                <td class="mono">16,842</td>
+                <td class="mono">2026-11-16 09:00</td>
+                <td><span class="badge badge-ok">已生成</span></td>
+                <td><div class="row-actions"><span class="link">查看</span><span>下载</span></div></td>
+              </tr>
+              <tr>
+                <td class="strong">duration 字段周对比分析</td>
+                <td><span class="badge badge-info">即时</span></td>
+                <td class="mono">analytics_db</td>
+                <td class="mono">112,430</td>
+                <td class="mono">2026-11-15 16:22</td>
+                <td><span class="badge badge-ok">已生成</span></td>
+                <td><div class="row-actions"><span class="link">查看</span><span>下载</span></div></td>
+              </tr>
+              <tr>
+                <td class="strong">每日运营数据报告 · 2026-11-15</td>
+                <td><span class="badge badge-ok">定时</span></td>
+                <td class="mono">analytics_db</td>
+                <td class="mono">16,105</td>
+                <td class="mono">2026-11-15 09:00</td>
+                <td><span class="badge badge-ok">已生成</span></td>
+                <td><div class="row-actions"><span class="link">查看</span><span>下载</span></div></td>
+              </tr>
+              <tr>
+                <td class="strong">异常事件分布扫描 · 11/14</td>
+                <td><span class="badge badge-info">即时</span></td>
+                <td class="mono">analytics_db</td>
+                <td class="mono">48,820</td>
+                <td class="mono">2026-11-14 14:07</td>
+                <td><span class="badge badge-info">已归档</span></td>
+                <td><div class="row-actions"><span class="link">查看</span><span>下载</span></div></td>
+              </tr>
+              <tr>
+                <td class="strong">每周趋势汇总 · W46</td>
+                <td><span class="badge badge-ok">定时</span></td>
+                <td class="mono">analytics_db</td>
+                <td class="mono">118,240</td>
+                <td class="mono">2026-11-10 09:00</td>
+                <td><span class="badge badge-ok">已生成</span></td>
+                <td><div class="row-actions"><span class="link">查看</span><span>下载</span></div></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ════ VIEW: 定时任务 ════ -->
+      <div class="view" id="view-scheduler">
+        <div class="view-head">
+          <h2>定时任务</h2>
+          <p>配置周期性报告，Agent 按计划自动执行分析并归档报告文件</p>
+          <div class="head-actions"><button class="btn btn-primary">+ 新建任务</button></div>
+        </div>
+
+        <div class="task-card">
+          <div class="task-top">
+            <div class="task-ico">◷</div>
+            <div>
+              <div class="t">每日运营数据报告</div>
+              <div class="cron">0 9 * * * · 每天 09:00</div>
+            </div>
+            <div class="toggle"></div>
+          </div>
+          <div class="task-meta">
+            <div class="m"><div class="k">上次执行</div><div class="v">今天 09:00 · 成功</div></div>
+            <div class="m"><div class="k">下次执行</div><div class="v">明天 09:00</div></div>
+            <div class="m"><div class="k">生成报告</div><div class="v">30 份</div></div>
+            <div class="m"><div class="k">分析需求</div><div class="v" style="font-family:'Inter',sans-serif;">昨日数据概览与异常检测</div></div>
+          </div>
+        </div>
+
+        <div class="task-card">
+          <div class="task-top">
+            <div class="task-ico">◷</div>
+            <div>
+              <div class="t">每周趋势汇总</div>
+              <div class="cron">0 9 * * 1 · 每周一 09:00</div>
+            </div>
+            <div class="toggle"></div>
+          </div>
+          <div class="task-meta">
+            <div class="m"><div class="k">上次执行</div><div class="v">11/10 09:00 · 成功</div></div>
+            <div class="m"><div class="k">下次执行</div><div class="v">11/17 09:00</div></div>
+            <div class="m"><div class="k">生成报告</div><div class="v">6 份</div></div>
+            <div class="m"><div class="k">分析需求</div><div class="v" style="font-family:'Inter',sans-serif;">本周趋势与周环比对比</div></div>
+          </div>
+        </div>
+
+        <div class="task-card" style="opacity:0.75;">
+          <div class="task-top">
+            <div class="task-ico" style="background:var(--paper-deep);color:var(--ink-muted);">◷</div>
+            <div>
+              <div class="t">月度异常扫描</div>
+              <div class="cron">0 9 1 * * · 每月 1 日 09:00</div>
+            </div>
+            <div class="toggle off"></div>
+          </div>
+          <div class="task-meta">
+            <div class="m"><div class="k">上次执行</div><div class="v">11/01 09:00 · 成功</div></div>
+            <div class="m"><div class="k">下次执行</div><div class="v">已暂停</div></div>
+            <div class="m"><div class="k">生成报告</div><div class="v">2 份</div></div>
+            <div class="m"><div class="k">分析需求</div><div class="v" style="font-family:'Inter',sans-serif;">全月异常事件汇总</div></div>
+          </div>
+        </div>
+
+        <div class="notice" style="margin-top:16px;background:var(--green-light);border-color:#B8D4B7;color:#3A6A3A;">
+          <span class="i">ⓘ</span>
+          <span>任务由 ARQ + Redis 驱动，与 Agent Runtime 解耦。每次执行会生成数据快照并记录任务状态，支持失败重试、超时控制与幂等执行。</span>
+        </div>
+      </div>
+
+      <!-- ════ VIEW: 数据源 ════ -->
+      <div class="view" id="view-sources">
+        <div class="view-head">
+          <h2>数据源</h2>
+          <p>管理连接的数据源。MVP 支持 PostgreSQL，接口设计预留扩展</p>
+          <div class="head-actions"><button class="btn btn-primary">+ 添加数据源</button></div>
+        </div>
+
+        <div class="stat-row">
+          <div class="stat-card"><div class="k">已连接</div><div class="v">1</div></div>
+          <div class="stat-card"><div class="k">数据表</div><div class="v">3</div></div>
+          <div class="stat-card"><div class="k">总行数</div><div class="v">486K</div></div>
+          <div class="stat-card"><div class="k">最后同步</div><div class="v">5<small> 分钟前</small></div></div>
+        </div>
+
+        <div class="section-label">已连接的数据源</div>
+        <div class="ds-grid">
+          <div class="ds-card connected">
+            <div class="ds-top">
+              <div class="ds-logo pg">PG</div>
+              <div>
+                <div class="t">analytics_db <span class="badge badge-ok">已连接</span></div>
+                <div class="s">postgresql://localhost:5432/analytics_db</div>
+              </div>
+            </div>
+            <div class="kv"><span class="k">查询模式</span><span class="v">只读（禁 DDL/DML）</span></div>
+            <div class="kv"><span class="k">Schema</span><span class="v">public</span></div>
+            <div class="kv"><span class="k">数据表</span><span class="v">events · users · sessions</span></div>
+            <div class="kv"><span class="k">主分析表</span><span class="v">events (486,209 行)</span></div>
+            <div class="kv"><span class="k">凭证存储</span><span class="v">本地环境变量</span></div>
+            <div style="margin-top:12px;display:flex;gap:8px;"><button class="btn">查看表结构</button><button class="btn">重新同步</button></div>
+          </div>
+          <div class="ds-card">
+            <div class="ds-top">
+              <div class="ds-logo pg" style="background:var(--paper-deep);color:var(--ink-faint);">PG</div>
+              <div>
+                <div class="t">warehouse_prod <span class="badge badge-plain">未配置</span></div>
+                <div class="s">点击配置连接信息</div>
+              </div>
+            </div>
+            <div class="kv"><span class="k">类型</span><span class="v">PostgreSQL</span></div>
+            <div class="kv"><span class="k">状态</span><span class="v">—</span></div>
+            <div style="margin-top:12px;"><button class="btn btn-primary">+ 配置连接</button></div>
+          </div>
+        </div>
+
+        <div class="section-label">即将支持（接口预留）</div>
+        <div class="ds-grid">
+          <div class="ds-card disconnected">
+            <div class="ds-top">
+              <div class="ds-logo my">MY</div>
+              <div><div class="t">MySQL <span class="coming">后续版本</span></div><div class="s">关系型数据库连接器</div></div>
+            </div>
+          </div>
+          <div class="ds-card disconnected">
+            <div class="ds-top">
+              <div class="ds-logo cs">CS</div>
+              <div><div class="t">CSV / Excel <span class="coming">后续版本</span></div><div class="s">文件上传数据源</div></div>
+            </div>
+          </div>
+          <div class="ds-card disconnected">
+            <div class="ds-top">
+              <div class="ds-logo api">API</div>
+              <div><div class="t">REST API <span class="coming">后续版本</span></div><div class="s">HTTP 接口数据源</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ════ VIEW: 字段元数据 ════ -->
+      <div class="view" id="view-metadata">
+        <div class="view-head">
+          <h2>字段元数据</h2>
+          <p>为字段添加展示名、描述、单位与标签，辅助报告展示与解释</p>
+          <div class="head-actions"><button class="btn">重新识别类型</button></div>
+        </div>
+
+        <div class="notice">
+          <span class="i">ⓘ</span>
+          <span><b>标签只辅助展示和解释，不是分析的前置条件。</b>没有用户标签时，系统使用原始字段名与自动识别的数据类型。字段类型识别不代表理解业务语义——例如 <code style="font-family:'JetBrains Mono',monospace;">status=1</code> 只能识别为分类值，系统不会自行认定它代表"成功"。</span>
+        </div>
+
+        <div class="tbl-wrap">
+          <table class="tbl">
+            <thead><tr><th>字段名</th><th>识别类型</th><th>展示名称</th><th>单位</th><th>用户标签</th><th>描述</th></tr></thead>
+            <tbody>
+              <tr>
+                <td class="mono strong">duration</td>
+                <td><span class="type-badge type-numeric">数值</span></td>
+                <td class="strong">请求耗时</td>
+                <td class="mono">秒</td>
+                <td><span class="tag user">核心指标</span><span class="tag user">性能</span></td>
+                <td>API 请求处理时长</td>
+              </tr>
+              <tr>
+                <td class="mono strong">created_at</td>
+                <td><span class="type-badge type-temporal">时间</span></td>
+                <td class="strong">创建时间</td>
+                <td class="mono">—</td>
+                <td><span class="tag user">时间维度</span></td>
+                <td>事件记录时间戳，用于趋势分析</td>
+              </tr>
+              <tr>
+                <td class="mono strong">status</td>
+                <td><span class="type-badge type-categorical">分类</span></td>
+                <td class="strong">状态码</td>
+                <td class="mono">—</td>
+                <td><span class="tag">5 个分类值</span></td>
+                <td>未添加语义标签，系统仅识别为分类字段</td>
+              </tr>
+              <tr>
+                <td class="mono strong">response_size</td>
+                <td><span class="type-badge type-numeric">数值</span></td>
+                <td class="strong">响应大小</td>
+                <td class="mono">KB</td>
+                <td><span class="tag user">性能指标</span></td>
+                <td>响应体字节数</td>
+              </tr>
+              <tr>
+                <td class="mono strong">retry_count</td>
+                <td><span class="type-badge type-numeric">数值</span></td>
+                <td class="strong">重试次数</td>
+                <td class="mono">次</td>
+                <td><span class="tag user">性能指标</span></td>
+                <td>请求重试次数</td>
+              </tr>
+              <tr>
+                <td class="mono strong">error_code</td>
+                <td><span class="type-badge type-categorical">分类</span></td>
+                <td>—</td>
+                <td class="mono">—</td>
+                <td><span class="tag">空值率 91.7%</span></td>
+                <td>条件性填充字段，未添加用户标签</td>
+              </tr>
+              <tr>
+                <td class="mono strong">payload</td>
+                <td><span class="type-badge type-text">文本</span></td>
+                <td>—</td>
+                <td class="mono">—</td>
+                <td><span class="tag">高基数字段</span></td>
+                <td>非结构化文本，不参与数值统计</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+// ── Navigation switching ──
+const viewTitles = {
+  analysis: '新建分析', reports: '报告库', scheduler: '定时任务',
+  sources: '数据源', metadata: '字段元数据'
+};
+document.querySelectorAll('.nav-item').forEach(item => {
+  item.addEventListener('click', () => {
+    const view = item.dataset.view;
+    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+    document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+    item.classList.add('active');
+    document.getElementById('view-' + view).classList.add('active');
+    document.getElementById('crumb-current').textContent = viewTitles[view];
+    document.querySelector('.content').scrollTop = 0;
+  });
+});
+
+// ── Scheduler toggles ──
+document.querySelectorAll('.toggle').forEach(t => {
+  t.addEventListener('click', () => t.classList.toggle('off'));
+});
+
+// ── Chip click fills composer ──
+const chipText = {
+  '📈 趋势分析': '帮我分析最近 30 天的数据趋势，找出波动比较明显的字段。',
+  '⚠ 异常检测': '检测最近 7 天的异常数据点，说明异常发生的时间和内容。',
+  '📊 周期对比': '对比最近 7 天和前 7 天各字段的变化情况。'
+};
+document.querySelectorAll('.chip').forEach(chip => {
+  chip.addEventListener('click', () => {
+    document.querySelector('.composer-input').value = chipText[chip.textContent.trim()] || '';
+    document.querySelector('.composer-input').focus();
+  });
+});
+
+// ── Allow opening a specific view via URL hash (for previewing) ──
+function openViewFromHash() {
+  const v = location.hash.replace('#', '');
+  if (viewTitles[v]) {
+    const item = document.querySelector('.nav-item[data-view="' + v + '"]');
+    if (item) item.click();
+  }
+}
+window.addEventListener('hashchange', openViewFromHash);
+openViewFromHash();
+</script>
+</body>
+</html>

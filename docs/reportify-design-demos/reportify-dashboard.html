@@ -1,0 +1,1347 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Reportify · 数据趋势分析报告</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+<style>
+  :root {
+    --paper: #F5F0E8;
+    --paper-deep: #EDE6D8;
+    --paper-card: #FAF6EF;
+    --paper-card-hover: #F9F3EA;
+    --ink: #1A1A1A;
+    --ink-soft: #4A4A4A;
+    --ink-muted: #8A8A8A;
+    --ink-faint: #B5B0A5;
+    --terracotta: #CC785C;
+    --terracotta-deep: #B5624A;
+    --terracotta-light: #E8D0C2;
+    --terracotta-bg: #F4E4DC;
+    --line: #D8D0C0;
+    --line-soft: #E8E0D0;
+    --green: #5B8C5A;
+    --green-light: #D4E4D3;
+    --amber: #D4A547;
+    --amber-light: #F0E4C4;
+    --red: #C45B5B;
+    --red-light: #F0D4D4;
+    --blue: #4A7BA8;
+    --blue-light: #D0DFEE;
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Inter', -apple-system, system-ui, sans-serif;
+    background: var(--paper);
+    color: var(--ink);
+    line-height: 1.6;
+    font-size: 14px;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ── Report Header ── */
+  .report-header {
+    background: var(--paper-card);
+    border-bottom: 1px solid var(--line);
+    padding: 20px 32px;
+  }
+  .report-header-inner {
+    max-width: 1320px;
+    margin: 0 auto;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+  }
+  .report-title-block h1 {
+    font-family: 'Fraunces', serif;
+    font-size: 24px;
+    font-weight: 600;
+    color: var(--ink);
+    letter-spacing: -0.3px;
+    margin-bottom: 6px;
+  }
+  .report-meta {
+    display: flex;
+    gap: 20px;
+    font-size: 12px;
+    color: var(--ink-muted);
+    flex-wrap: wrap;
+  }
+  .report-meta span {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+  }
+  .report-meta .label {
+    color: var(--ink-faint);
+  }
+  .report-meta .value {
+    color: var(--ink-soft);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+  }
+  .report-header-right {
+    text-align: right;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 6px;
+  }
+  .report-id {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--ink-muted);
+  }
+  .report-tag {
+    display: inline-block;
+    background: var(--terracotta-bg);
+    color: var(--terracotta-deep);
+    font-size: 11px;
+    font-weight: 500;
+    padding: 3px 10px;
+    border-radius: 4px;
+    border: 1px solid var(--terracotta-light);
+  }
+  .report-query {
+    background: var(--terracotta-bg);
+    border-left: 3px solid var(--terracotta);
+    padding: 8px 14px;
+    font-size: 13px;
+    color: var(--ink-soft);
+    border-radius: 0 4px 4px 0;
+    font-style: italic;
+  }
+  .report-query strong {
+    font-style: normal;
+    color: var(--terracotta-deep);
+    font-weight: 600;
+  }
+
+  /* ── Report Body ── */
+  .report-body {
+    max-width: 1320px;
+    margin: 0 auto;
+    padding: 24px 32px 48px;
+  }
+
+  /* ── KPI Row ── */
+  .kpi-row {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+  .kpi-card {
+    background: var(--paper-card);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 16px 18px;
+    transition: border-color 0.2s, transform 0.15s;
+  }
+  .kpi-card:hover {
+    border-color: var(--terracotta);
+    transform: translateY(-1px);
+  }
+  .kpi-label {
+    font-size: 12px;
+    color: var(--ink-muted);
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .kpi-label .icon {
+    width: 14px;
+    height: 14px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 3px;
+    font-size: 9px;
+    font-weight: 700;
+  }
+  .kpi-value {
+    font-family: 'Fraunces', serif;
+    font-size: 28px;
+    font-weight: 600;
+    color: var(--ink);
+    letter-spacing: -0.5px;
+    line-height: 1.1;
+    margin-bottom: 4px;
+  }
+  .kpi-unit {
+    font-size: 14px;
+    color: var(--ink-muted);
+    font-weight: 400;
+    margin-left: 2px;
+  }
+  .kpi-delta {
+    font-size: 12px;
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    font-weight: 500;
+  }
+  .kpi-delta.up { color: var(--green); }
+  .kpi-delta.down { color: var(--red); }
+  .kpi-delta.flat { color: var(--ink-muted); }
+  .kpi-sub {
+    font-size: 11px;
+    color: var(--ink-faint);
+    margin-top: 4px;
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  /* ── Section ── */
+  .section {
+    margin-bottom: 28px;
+  }
+  .section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 14px;
+    border-bottom: 1px solid var(--line-soft);
+    padding-bottom: 8px;
+  }
+  .section-title {
+    font-family: 'Fraunces', serif;
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--ink);
+  }
+  .section-title .num {
+    color: var(--terracotta);
+    font-weight: 500;
+    margin-right: 8px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+  }
+  .section-source {
+    font-size: 11px;
+    color: var(--ink-faint);
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  /* ── Chart Grid ── */
+  .chart-grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+  .chart-grid-3 {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 16px;
+  }
+  .chart-card {
+    background: var(--paper-card);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 16px 18px 12px;
+    transition: border-color 0.2s;
+  }
+  .chart-card:hover {
+    border-color: var(--terracotta-light);
+  }
+  .chart-card-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ink);
+    margin-bottom: 4px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .chart-card-title .badge {
+    font-size: 10px;
+    font-weight: 500;
+    padding: 2px 7px;
+    border-radius: 3px;
+    font-family: 'Inter', sans-serif;
+  }
+  .badge-warn { background: var(--amber-light); color: #8A7020; }
+  .badge-info { background: var(--blue-light); color: #2C5378; }
+  .badge-danger { background: var(--red-light); color: #8A3030; }
+  .badge-ok { background: var(--green-light); color: #3A6A3A; }
+  .chart-card-desc {
+    font-size: 11px;
+    color: var(--ink-muted);
+    margin-bottom: 8px;
+  }
+  .chart-container {
+    width: 100%;
+    height: 280px;
+  }
+  .chart-container.tall { height: 340px; }
+  .chart-container.short { height: 220px; }
+
+  /* ── Data Source Note ── */
+  .data-source-note {
+    margin-top: 10px;
+    padding-top: 8px;
+    border-top: 1px dashed var(--line);
+    font-size: 10px;
+    color: var(--ink-faint);
+    line-height: 1.5;
+  }
+  .data-source-note .ds-label {
+    color: var(--ink-muted);
+    font-weight: 500;
+  }
+  .data-source-note code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    background: var(--paper-deep);
+    padding: 1px 5px;
+    border-radius: 3px;
+    color: var(--ink-soft);
+  }
+
+  /* ── Data Table ── */
+  .data-table-wrapper {
+    background: var(--paper-card);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    overflow: hidden;
+  }
+  table.data-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+  }
+  table.data-table thead {
+    background: var(--paper-deep);
+  }
+  table.data-table th {
+    text-align: left;
+    padding: 10px 16px;
+    font-weight: 600;
+    color: var(--ink-soft);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border-bottom: 1px solid var(--line);
+    white-space: nowrap;
+  }
+  table.data-table td {
+    padding: 9px 16px;
+    border-bottom: 1px solid var(--line-soft);
+    color: var(--ink-soft);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+  }
+  table.data-table tr:last-child td {
+    border-bottom: none;
+  }
+  table.data-table tr:hover td {
+    background: var(--paper-card-hover);
+  }
+  table.data-table .col-num { text-align: right; }
+  table.data-table .col-field { font-weight: 500; color: var(--ink); }
+  table.data-table .type-badge {
+    display: inline-block;
+    font-size: 9px;
+    font-weight: 600;
+    padding: 2px 6px;
+    border-radius: 3px;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    font-family: 'Inter', sans-serif;
+  }
+  .type-numeric { background: var(--blue-light); color: #2C5378; }
+  .type-temporal { background: var(--amber-light); color: #8A7020; }
+  .type-categorical { background: var(--terracotta-bg); color: var(--terracotta-deep); }
+  .volatility-bar {
+    display: inline-block;
+    width: 60px;
+    height: 6px;
+    background: var(--paper-deep);
+    border-radius: 3px;
+    overflow: hidden;
+    vertical-align: middle;
+    margin-left: 6px;
+  }
+  .volatility-bar-fill {
+    height: 100%;
+    border-radius: 3px;
+  }
+
+  /* ── Conclusions ── */
+  .conclusions {
+    background: var(--paper-card);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 20px 24px;
+  }
+  .conclusion-item {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 14px;
+  }
+  .conclusion-item:last-child { margin-bottom: 0; }
+  .conclusion-num {
+    flex-shrink: 0;
+    width: 24px;
+    height: 24px;
+    border-radius: 4px;
+    background: var(--terracotta-bg);
+    color: var(--terracotta-deep);
+    font-size: 12px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .conclusion-text {
+    font-size: 13px;
+    color: var(--ink-soft);
+    line-height: 1.65;
+  }
+  .conclusion-text strong {
+    color: var(--ink);
+    font-weight: 600;
+  }
+  .conclusion-text .highlight {
+    background: var(--terracotta-bg);
+    color: var(--terracotta-deep);
+    padding: 0 4px;
+    border-radius: 2px;
+    font-weight: 500;
+  }
+
+  /* ── Agent Trace ── */
+  .agent-trace {
+    background: var(--paper-card);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    overflow: hidden;
+  }
+  .agent-trace-header {
+    background: var(--paper-deep);
+    padding: 10px 16px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--ink-soft);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid var(--line);
+  }
+  .agent-trace-header .trace-time {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--ink-muted);
+    font-weight: 400;
+  }
+  .trace-step {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--line-soft);
+    font-size: 12px;
+  }
+  .trace-step:last-child { border-bottom: none; }
+  .trace-step-icon {
+    flex-shrink: 0;
+    width: 20px;
+    height: 20px;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    font-weight: 700;
+    font-family: 'JetBrains Mono', monospace;
+    margin-top: 1px;
+  }
+  .trace-step-icon.tool { background: var(--blue-light); color: #2C5378; }
+  .trace-step-icon.result { background: var(--green-light); color: #3A6A3A; }
+  .trace-step-icon.plan { background: var(--amber-light); color: #8A7020; }
+  .trace-step-content {
+    flex: 1;
+    min-width: 0;
+  }
+  .trace-step-title {
+    font-weight: 500;
+    color: var(--ink);
+    margin-bottom: 2px;
+  }
+  .trace-step-title code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    background: var(--paper-deep);
+    padding: 1px 5px;
+    border-radius: 3px;
+    color: var(--terracotta-deep);
+  }
+  .trace-step-desc {
+    font-size: 11px;
+    color: var(--ink-muted);
+    line-height: 1.5;
+  }
+  .trace-step-desc code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: var(--ink-soft);
+  }
+  .trace-step-time {
+    flex-shrink: 0;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: var(--ink-faint);
+    margin-top: 2px;
+  }
+
+  /* ── Report Footer ── */
+  .report-footer {
+    max-width: 1320px;
+    margin: 0 auto;
+    padding: 20px 32px 32px;
+    border-top: 1px solid var(--line);
+    margin-top: 8px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 11px;
+    color: var(--ink-faint);
+  }
+  .report-footer .footer-meta {
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .report-footer .footer-brand {
+    font-family: 'Fraunces', serif;
+    font-size: 13px;
+    color: var(--terracotta);
+    font-weight: 500;
+  }
+
+  /* ── Responsive ── */
+  @media (max-width: 1024px) {
+    .kpi-row { grid-template-columns: repeat(3, 1fr); }
+    .chart-grid-2 { grid-template-columns: 1fr; }
+    .chart-grid-3 { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 640px) {
+    .kpi-row { grid-template-columns: repeat(2, 1fr); }
+    .report-header-inner { flex-direction: column; gap: 12px; }
+    .report-header-right { align-items: flex-start; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ════════ Report Header ════════ -->
+<div class="report-header">
+  <div class="report-header-inner">
+    <div class="report-title-block">
+      <h1>最近 30 天数据趋势分析报告</h1>
+      <div class="report-query">
+        <strong>用户需求：</strong>"帮我分析最近 30 天的数据趋势，找出波动比较明显的字段。"
+      </div>
+      <div class="report-meta" style="margin-top: 10px;">
+        <span><span class="label">数据源：</span><span class="value">PostgreSQL · analytics_db</span></span>
+        <span><span class="label">分析范围：</span><span class="value">2026-10-17 ~ 2026-11-15</span></span>
+        <span><span class="label">样本数量：</span><span class="value">486,209 行</span></span>
+        <span><span class="label">生成时间：</span><span class="value">2026-11-16 09:03:42</span></span>
+        <span><span class="label">Agent 耗时：</span><span class="value">12.4s</span></span>
+      </div>
+    </div>
+    <div class="report-header-right">
+      <span class="report-tag">即时分析</span>
+      <span class="report-id">report_id: rpt_20261116_090342_a1b2</span>
+    </div>
+  </div>
+</div>
+
+<!-- ════════ Report Body ════════ -->
+<div class="report-body">
+
+  <!-- ── KPI Row ── -->
+  <div class="kpi-row">
+    <div class="kpi-card">
+      <div class="kpi-label">
+        <span class="icon" style="background:var(--blue-light);color:#2C5378;">Σ</span>
+        总记录数
+      </div>
+      <div class="kpi-value">486,209<span class="kpi-unit"> 行</span></div>
+      <div class="kpi-delta up">↑ 3.2%</div>
+      <div class="kpi-sub">vs 前 30 天</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">
+        <span class="icon" style="background:var(--terracotta-bg);color:var(--terracotta-deep);">μ</span>
+        duration 均值
+      </div>
+      <div class="kpi-value">142.7<span class="kpi-unit"> s</span></div>
+      <div class="kpi-delta up">↑ 18.6%</div>
+      <div class="kpi-sub">vs 前 30 天 · 波动显著</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">
+        <span class="icon" style="background:var(--amber-light);color:#8A7020;">σ</span>
+        异常事件数
+      </div>
+      <div class="kpi-value">37<span class="kpi-unit"> 次</span></div>
+      <div class="kpi-delta down">↑ 12 次</div>
+      <div class="kpi-sub">Z-score > 3σ</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">
+        <span class="icon" style="background:var(--green-light);color:#3A6A3A;">N</span>
+        活跃字段数
+      </div>
+      <div class="kpi-value">12<span class="kpi-unit"> / 18</span></div>
+      <div class="kpi-delta flat">—</div>
+      <div class="kpi-sub">6 字段空值率 > 90%</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">
+        <span class="icon" style="background:var(--red-light);color:#8A3030;">!</span>
+        高波动字段
+      </div>
+      <div class="kpi-value">3<span class="kpi-unit"> 个</span></div>
+      <div class="kpi-delta down">↑ 1</div>
+      <div class="kpi-sub">CV > 0.5</div>
+    </div>
+  </div>
+
+  <!-- ── Section 1: 核心趋势 ── -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-title"><span class="num">01</span>核心指标趋势（近 30 天 vs 前 30 天）</div>
+      <div class="section-source">tool: analyze_trend · 14 个数值字段</div>
+    </div>
+    <div class="chart-grid-2">
+      <div class="chart-card">
+        <div class="chart-card-title">
+          duration 字段日均值趋势
+          <span class="badge badge-danger">波动显著</span>
+        </div>
+        <div class="chart-card-desc">日均值从前 30 天的 120.3s 升至近 30 天的 142.7s，11/12 出现异常峰值</div>
+        <div id="chart-trend-duration" class="chart-container tall"></div>
+        <div class="data-source-note">
+          <span class="ds-label">数据来源：</span>
+          <code>SELECT date_trunc('day', created_at) AS d, AVG(duration) FROM events WHERE created_at >= $1 AND created_at < $2 GROUP BY 1</code>
+          <br>
+          <span class="ds-label">计算口径：</span>日均值 · 排除 NULL · 样本数 486,209 · 执行耗时 1.2s
+        </div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-card-title">
+          字段波动率对比（变异系数 CV）
+          <span class="badge badge-warn">3 个字段超标</span>
+        </div>
+        <div class="chart-card-desc">CV > 0.5 的字段：duration(0.68)、response_size(0.55)、retry_count(0.62)</div>
+        <div id="chart-volatility" class="chart-container tall"></div>
+        <div class="data-source-note">
+          <span class="ds-label">数据来源：</span>
+          <code>SELECT field_name, stddev / NULLIF(avg, 0) AS cv FROM field_stats WHERE period = 'last_30d'</code>
+          <br>
+          <span class="ds-label">计算口径：</span>变异系数 CV = σ/μ · 仅数值字段 · 执行耗时 0.8s
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Section 2: 分布与异常 ── -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-title"><span class="num">02</span>分布与异常检测</div>
+      <div class="section-source">tool: analyze_distribution · detect_anomalies</div>
+    </div>
+    <div class="chart-grid-3">
+      <div class="chart-card">
+        <div class="chart-card-title">
+          duration 分布直方图
+          <span class="badge badge-info">右偏分布</span>
+        </div>
+        <div class="chart-card-desc">偏度 1.8，长尾在右侧，P95 = 320s</div>
+        <div id="chart-dist-duration" class="chart-container"></div>
+        <div class="data-source-note">
+          <span class="ds-label">来源：</span><code>analyze_distribution(field='duration', bins=20)</code>
+        </div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-card-title">
+          status 字段分类分布
+          <span class="badge badge-ok">5 个分类值</span>
+        </div>
+        <div class="chart-card-desc">status=1 占比最高（62.3%），系统识别为分类字段，不作语义推断</div>
+        <div id="chart-dist-status" class="chart-container"></div>
+        <div class="data-source-note">
+          <span class="ds-label">来源：</span><code>analyze_distribution(field='status')</code>
+          <br><span class="ds-label">注意：</span>系统仅识别为分类值，未推断业务含义
+        </div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-card-title">
+          异常事件时间线
+          <span class="badge badge-danger">37 次异常</span>
+        </div>
+        <div class="chart-card-desc">Z-score > 3σ，集中在 11/12 和 11/14</div>
+        <div id="chart-anomaly" class="chart-container"></div>
+        <div class="data-source-note">
+          <span class="ds-label">来源：</span><code>detect_anomalies(method='zscore', threshold=3.0)</code>
+          <br><span class="ds-label">计算口径：</span>滑动窗口 7 日 · 执行耗时 1.5s
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Section 3: 周期对比 ── -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-title"><span class="num">03</span>周期对比（近 7 天 vs 前 7 天）</div>
+      <div class="section-source">tool: compare_periods</div>
+    </div>
+    <div class="chart-grid-2">
+      <div class="chart-card">
+        <div class="chart-card-title">
+          核心数值字段周对比（归一化指数 · 前 7 天 = 100）
+          <span class="badge badge-warn">duration ↑ 22%</span>
+        </div>
+        <div class="chart-card-desc">以各字段前 7 天均值为基准 100，消除量纲差异后对比相对变化</div>
+        <div id="chart-compare" class="chart-container"></div>
+        <div class="data-source-note">
+          <span class="ds-label">来源：</span><code>compare_periods(field=['duration','response_size','retry_count'], periods=[7, 7])</code>
+          <br><span class="ds-label">计算口径：</span>窗口对比 · 执行耗时 0.9s
+        </div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-card-title">
+          日请求量对比
+          <span class="badge badge-info">总量 ↑ 3.2%</span>
+        </div>
+        <div class="chart-card-desc">日请求量稳定增长，周末略低</div>
+        <div id="chart-volume" class="chart-container"></div>
+        <div class="data-source-note">
+          <span class="ds-label">来源：</span><code>compare_periods(field='request_count', periods=[7, 7])</code>
+          <br><span class="ds-label">计算口径：</span>按日聚合 · 执行耗时 0.6s
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Section 4: 数据画像 ── -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-title"><span class="num">04</span>数据画像 · 字段统计概览</div>
+      <div class="section-source">tool: profile_dataset · 18 个字段</div>
+    </div>
+    <div class="data-table-wrapper">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>字段名</th>
+            <th>类型</th>
+            <th class="col-num">非空率</th>
+            <th class="col-num">唯一值</th>
+            <th class="col-num">均值</th>
+            <th class="col-num">标准差</th>
+            <th class="col-num">变异系数</th>
+            <th>波动</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="col-field">duration</td>
+            <td><span class="type-badge type-numeric">数值</span></td>
+            <td class="col-num">99.8%</td>
+            <td class="col-num">—</td>
+            <td class="col-num">142.7</td>
+            <td class="col-num">97.0</td>
+            <td class="col-num">0.68</td>
+            <td><span class="volatility-bar"><span class="volatility-bar-fill" style="width:85%;background:var(--red);"></span></span></td>
+          </tr>
+          <tr>
+            <td class="col-field">retry_count</td>
+            <td><span class="type-badge type-numeric">数值</span></td>
+            <td class="col-num">99.8%</td>
+            <td class="col-num">—</td>
+            <td class="col-num">0.31</td>
+            <td class="col-num">0.19</td>
+            <td class="col-num">0.62</td>
+            <td><span class="volatility-bar"><span class="volatility-bar-fill" style="width:78%;background:var(--red);"></span></span></td>
+          </tr>
+          <tr>
+            <td class="col-field">response_size</td>
+            <td><span class="type-badge type-numeric">数值</span></td>
+            <td class="col-num">99.5%</td>
+            <td class="col-num">—</td>
+            <td class="col-num">2,840</td>
+            <td class="col-num">1,562</td>
+            <td class="col-num">0.55</td>
+            <td><span class="volatility-bar"><span class="volatility-bar-fill" style="width:69%;background:var(--amber);"></span></span></td>
+          </tr>
+          <tr>
+            <td class="col-field">status</td>
+            <td><span class="type-badge type-categorical">分类</span></td>
+            <td class="col-num">100%</td>
+            <td class="col-num">5</td>
+            <td class="col-num">—</td>
+            <td class="col-num">—</td>
+            <td class="col-num">—</td>
+            <td><span class="volatility-bar"><span class="volatility-bar-fill" style="width:30%;background:var(--green);"></span></span></td>
+          </tr>
+          <tr>
+            <td class="col-field">created_at</td>
+            <td><span class="type-badge type-temporal">时间</span></td>
+            <td class="col-num">100%</td>
+            <td class="col-num">486,209</td>
+            <td class="col-num">—</td>
+            <td class="col-num">—</td>
+            <td class="col-num">—</td>
+            <td><span class="volatility-bar"><span class="volatility-bar-fill" style="width:20%;background:var(--green);"></span></span></td>
+          </tr>
+          <tr>
+            <td class="col-field">user_id</td>
+            <td><span class="type-badge type-categorical">分类</span></td>
+            <td class="col-num">87.2%</td>
+            <td class="col-num">12,847</td>
+            <td class="col-num">—</td>
+            <td class="col-num">—</td>
+            <td class="col-num">—</td>
+            <td><span class="volatility-bar"><span class="volatility-bar-fill" style="width:35%;background:var(--green);"></span></span></td>
+          </tr>
+          <tr>
+            <td class="col-field">endpoint</td>
+            <td><span class="type-badge type-categorical">分类</span></td>
+            <td class="col-num">100%</td>
+            <td class="col-num">23</td>
+            <td class="col-num">—</td>
+            <td class="col-num">—</td>
+            <td class="col-num">—</td>
+            <td><span class="volatility-bar"><span class="volatility-bar-fill" style="width:25%;background:var(--green);"></span></span></td>
+          </tr>
+          <tr>
+            <td class="col-field">error_code</td>
+            <td><span class="type-badge type-categorical">分类</span></td>
+            <td class="col-num">8.3%</td>
+            <td class="col-num">14</td>
+            <td class="col-num">—</td>
+            <td class="col-num">—</td>
+            <td class="col-num">—</td>
+            <td><span class="volatility-bar"><span class="volatility-bar-fill" style="width:45%;background:var(--amber);"></span></span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="data-source-note" style="margin-top: 8px; padding: 8px 0 0; border-top: 1px dashed var(--line);">
+      <span class="ds-label">数据来源：</span><code>profile_dataset(table='events')</code>
+      <span style="margin-left: 12px;"><span class="ds-label">计算口径：</span>全量统计 · 18 字段 · 执行耗时 3.2s</span>
+      <span style="margin-left: 12px;"><span class="ds-label">注意：</span>字段类型为系统自动识别，不代表业务语义</span>
+    </div>
+  </div>
+
+  <!-- ── Section 5: 分析结论 ── -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-title"><span class="num">05</span>分析结论</div>
+      <div class="section-source">Agent 综合所有工具结果生成</div>
+    </div>
+    <div class="conclusions">
+      <div class="conclusion-item">
+        <div class="conclusion-num">1</div>
+        <div class="conclusion-text">
+          <strong>duration 字段波动最为显著。</strong>近 30 天日均值从 120.3s 升至 142.7s（<span class="highlight">↑ 18.6%</span>），变异系数 0.68，远超其他数值字段。11/12 出现异常峰值（日均 285s，Z-score = 4.2），建议排查该日的系统变更或流量异常。
+        </div>
+      </div>
+      <div class="conclusion-item">
+        <div class="conclusion-num">2</div>
+        <div class="conclusion-text">
+          <strong>retry_count 与 duration 存在正相关。</strong>当 retry_count > 2 时，duration 均值显著上升（相关系数 0.72）。这表明重试机制可能是导致响应时间增长的因素之一，建议进一步分析重试原因。
+        </div>
+      </div>
+      <div class="conclusion-item">
+        <div class="conclusion-num">3</div>
+        <div class="conclusion-text">
+          <strong>异常事件集中在 11/12 和 11/14。</strong>37 次异常中 24 次发生在这两天，均与 duration 异常峰值重合。error_code 字段在这两天出现了 3 个此前未见的分类值（空值率 91.7%，仅在异常时填充）。
+        </div>
+      </div>
+      <div class="conclusion-item">
+        <div class="conclusion-num">4</div>
+        <div class="conclusion-text">
+          <strong>response_size 波动率偏高但趋势平稳。</strong>CV = 0.55 主要由个别大响应驱动，日均趋势无显著变化。status 字段分布稳定，5 个分类值占比在过去 60 天无显著变化。
+        </div>
+      </div>
+      <div class="conclusion-item">
+        <div class="conclusion-num">5</div>
+        <div class="conclusion-text">
+          <strong>6 个字段空值率 > 90%</strong>（error_code、trace_id、metadata、flags、region、tier），系统已识别但不纳入趋势分析。建议结合业务语境判断这些字段是否为条件性填充。
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Section 6: Agent 执行追溯 ── -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-title"><span class="num">06</span>Agent 执行追溯</div>
+      <div class="section-source">PydanticAI Agent · DeepSeek API · 7 步</div>
+    </div>
+    <div class="agent-trace">
+      <div class="agent-trace-header">
+        <span>执行日志</span>
+        <span class="trace-time">总耗时 12.4s · 7 次工具调用 · 0 次重试</span>
+      </div>
+      <div class="trace-step">
+        <div class="trace-step-icon plan">P</div>
+        <div class="trace-step-content">
+          <div class="trace-step-title">制定分析计划</div>
+          <div class="trace-step-desc">用户需求："分析最近 30 天数据趋势，找出波动明显的字段" → 规划：获取画像 → 趋势分析 → 分布分析 → 异常检测 → 周期对比 → 生成报告</div>
+        </div>
+        <div class="trace-step-time">0.0s</div>
+      </div>
+      <div class="trace-step">
+        <div class="trace-step-icon tool">T</div>
+        <div class="trace-step-content">
+          <div class="trace-step-title">调用 <code>inspect_dataset</code></div>
+          <div class="trace-step-desc">获取表结构：events 表，18 个字段，PostgreSQL 数据源 analytics_db</div>
+        </div>
+        <div class="trace-step-time">0.4s</div>
+      </div>
+      <div class="trace-step">
+        <div class="trace-step-icon tool">T</div>
+        <div class="trace-step-content">
+          <div class="trace-step-title">调用 <code>profile_dataset</code></div>
+          <div class="trace-step-desc">自动识别 7 个数值字段、1 个时间字段、8 个分类字段、2 个文本字段 · 计算空值率、唯一值数、统计量</div>
+        </div>
+        <div class="trace-step-time">3.6s</div>
+      </div>
+      <div class="trace-step">
+        <div class="trace-step-icon tool">T</div>
+        <div class="trace-step-content">
+          <div class="trace-step-title">调用 <code>analyze_trend</code></div>
+          <div class="trace-step-desc">对 7 个数值字段执行日均值趋势计算 · 对比前 30 天基线 · 识别 duration 波动最显著</div>
+        </div>
+        <div class="trace-step-time">5.1s</div>
+      </div>
+      <div class="trace-step">
+        <div class="trace-step-icon tool">T</div>
+        <div class="trace-step-content">
+          <div class="trace-step-title">调用 <code>analyze_distribution</code> + <code>detect_anomalies</code></div>
+          <div class="trace-step-desc">duration 分布偏度 1.8（右偏）· Z-score 检测发现 37 次异常 · 集中在 11/12 和 11/14</div>
+        </div>
+        <div class="trace-step-time">7.8s</div>
+      </div>
+      <div class="trace-step">
+        <div class="trace-step-icon tool">T</div>
+        <div class="trace-step-content">
+          <div class="trace-step-title">调用 <code>compare_periods</code></div>
+          <div class="trace-step-desc">近 7 天 vs 前 7 天对比 · duration ↑ 22% · retry_count ↑ 15% · response_size ↑ 3%</div>
+        </div>
+        <div class="trace-step-time">9.2s</div>
+      </div>
+      <div class="trace-step">
+        <div class="trace-step-icon result">R</div>
+        <div class="trace-step-content">
+          <div class="trace-step-title">生成 Report Schema → 渲染 HTML</div>
+          <div class="trace-step-desc">输出结构化 Schema（5 KPI + 7 图表 + 1 数据表 + 5 结论 + 执行追溯）→ Pydantic 校验通过 → Jinja2 渲染为静态 HTML</div>
+        </div>
+        <div class="trace-step-time">12.4s</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ════════ Report Footer ════════ -->
+<div class="report-footer">
+  <span class="footer-brand">Reportify</span>
+  <span class="footer-meta">report_id: rpt_20261116_090342_a1b2 · schema_ver: v1.0 · rendered_by: jinja2+echarts</span>
+</div>
+
+<script>
+// ── Color palette ──
+const C = {
+  terracotta: '#CC785C',
+  terracottaDeep: '#B5624A',
+  terracottaLight: '#E8D0C2',
+  terracottaBg: '#F4E4DC',
+  ink: '#1A1A1A',
+  inkSoft: '#4A4A4A',
+  inkMuted: '#8A8A8A',
+  inkFaint: '#B5B0A5',
+  paper: '#F5F0E8',
+  paperCard: '#FAF6EF',
+  paperDeep: '#EDE6D8',
+  line: '#D8D0C0',
+  green: '#5B8C5A',
+  greenLight: '#D4E4D3',
+  amber: '#D4A547',
+  amberLight: '#F0E4C4',
+  red: '#C45B5B',
+  redLight: '#F0D4D4',
+  blue: '#4A7BA8',
+  blueLight: '#D0DFEE',
+};
+
+// ── Shared axis styles ──
+const axisStyle = {
+  axisLine: { lineStyle: { color: C.line } },
+  axisTick: { show: false },
+  axisLabel: { color: C.inkMuted, fontSize: 10, fontFamily: 'JetBrains Mono' },
+  splitLine: { lineStyle: { color: C.line, type: 'dashed', opacity: 0.5 } },
+};
+
+// ── Chart 1: duration 日均值趋势（30天 + 前30天对比） ──
+const trendDates = [];
+const trendCurrent = [];
+const trendPrevious = [];
+const trendAnomaly = [];
+const today = new Date('2026-11-15');
+for (let i = 29; i >= 0; i--) {
+  const d = new Date(today);
+  d.setDate(d.getDate() - i);
+  trendDates.push((d.getMonth()+1) + '/' + d.getDate());
+  // 确定性数据：静态报告快照，多次打开结果一致
+  const base = 120 + Math.sin(i / 5) * 15 + (i < 10 ? i * 1.5 : 0);
+  const noise = Math.sin(i * 2.7) * 8;
+  const val = Math.round((base + noise) * 10) / 10;
+  trendCurrent.push(val);
+  trendPrevious.push(Math.round((100 + Math.sin(i / 5) * 10 + Math.cos(i * 1.9) * 6) * 10) / 10);
+  if (i === 3 || i === 5) {
+    trendAnomaly.push({ coord: [trendDates[trendDates.length-1], val], value: val });
+  } else {
+    trendAnomaly.push(null);
+  }
+}
+trendCurrent[26] = 285.3;
+trendCurrent[27] = 245.8;
+trendCurrent[24] = 278.4;
+
+echarts.init(document.getElementById('chart-trend-duration')).setOption({
+  grid: { left: 50, right: 20, top: 35, bottom: 30 },
+  legend: {
+    data: ['近 30 天', '前 30 天'],
+    right: 0, top: 0,
+    textStyle: { color: C.inkSoft, fontSize: 11 },
+    itemWidth: 14, itemHeight: 8,
+  },
+  tooltip: {
+    trigger: 'axis',
+    backgroundColor: C.paperCard,
+    borderColor: C.line,
+    textStyle: { color: C.ink, fontSize: 12 },
+  },
+  xAxis: { type: 'category', data: trendDates, ...axisStyle, boundaryGap: false },
+  yAxis: { type: 'value', name: '秒', nameTextStyle: { color: C.inkMuted, fontSize: 10 }, ...axisStyle },
+  series: [
+    {
+      name: '前 30 天',
+      type: 'line',
+      data: trendPrevious,
+      smooth: true,
+      symbol: 'none',
+      lineStyle: { color: C.inkFaint, width: 1.5, type: 'dashed' },
+      itemStyle: { color: C.inkFaint },
+      areaStyle: { color: 'rgba(181,178,165,0.06)' },
+    },
+    {
+      name: '近 30 天',
+      type: 'line',
+      data: trendCurrent,
+      smooth: true,
+      symbol: 'circle',
+      symbolSize: 4,
+      lineStyle: { color: C.terracotta, width: 2.5 },
+      itemStyle: { color: C.terracotta },
+      areaStyle: {
+        color: { type: 'linear', x: 0, y: 0, x2: 0, y2: 1,
+          colorStops: [
+            { offset: 0, color: 'rgba(204,120,92,0.18)' },
+            { offset: 1, color: 'rgba(204,120,92,0.01)' },
+          ]
+        }
+      },
+      markPoint: {
+        data: [
+          { name: '异常峰值', coord: [trendDates[26], 285.3], value: '285s\nZ=4.2',
+            itemStyle: { color: C.red },
+            label: { color: '#fff', fontSize: 9, fontWeight: 600 },
+            symbolSize: 36,
+          },
+        ],
+        symbol: 'circle',
+      },
+    },
+  ],
+});
+
+// ── Chart 2: 字段波动率对比（横向柱状图） ──
+const volatilityFields = ['duration', 'retry_count', 'response_size', 'request_count', 'latency', 'cache_hit_rate', 'queue_depth'];
+const volatilityValues = [0.68, 0.62, 0.55, 0.32, 0.28, 0.21, 0.15];
+echarts.init(document.getElementById('chart-volatility')).setOption({
+  grid: { left: 100, right: 40, top: 20, bottom: 30 },
+  tooltip: {
+    trigger: 'axis',
+    backgroundColor: C.paperCard,
+    borderColor: C.line,
+    textStyle: { color: C.ink, fontSize: 12 },
+    formatter: '{b}: {c} CV',
+  },
+  xAxis: { type: 'value', name: 'CV', nameTextStyle: { color: C.inkMuted, fontSize: 10 }, ...axisStyle, max: 0.8 },
+  yAxis: { type: 'category', data: volatilityFields, ...axisStyle, inverse: true,
+    axisLabel: { ...axisStyle.axisLabel, fontWeight: 500, color: C.inkSoft },
+  },
+  series: [{
+    type: 'bar',
+    data: volatilityValues.map((v, i) => ({
+      value: v,
+      itemStyle: {
+        color: v > 0.5 ? C.red : v > 0.3 ? C.amber : C.green,
+        borderRadius: [0, 3, 3, 0],
+      },
+    })),
+    barWidth: 18,
+    label: {
+      show: true,
+      position: 'right',
+      color: C.inkSoft,
+      fontSize: 11,
+      fontFamily: 'JetBrains Mono',
+      formatter: '{c}',
+    },
+    markLine: {
+      data: [{ xAxis: 0.5 }],
+      lineStyle: { color: C.red, type: 'dashed', width: 1.5 },
+      label: { formatter: '阈值 0.5', color: C.red, fontSize: 10, position: 'end' },
+      symbol: 'none',
+    },
+  }],
+});
+
+// ── Chart 3: duration 分布直方图 ──
+const distBins = [];
+const distCounts = [4200, 18500, 98000, 142000, 88000, 52000, 28000, 14000, 6500, 2800, 1100, 400, 150, 50, 20, 8, 3, 1, 0, 0];
+for (let i = 0; i < 20; i++) {
+  distBins.push((i * 20) + '-' + ((i+1) * 20));
+}
+echarts.init(document.getElementById('chart-dist-duration')).setOption({
+  grid: { left: 45, right: 15, top: 20, bottom: 30 },
+  tooltip: {
+    trigger: 'axis',
+    backgroundColor: C.paperCard,
+    borderColor: C.line,
+    textStyle: { color: C.ink, fontSize: 12 },
+    formatter: '{b}s: {c} 次',
+  },
+  xAxis: { type: 'category', data: distBins, ...axisStyle, axisLabel: { ...axisStyle.axisLabel, interval: 3 } },
+  yAxis: { type: 'value', ...axisStyle },
+  series: [{
+    type: 'bar',
+    data: distCounts.map((c, i) => ({
+      value: c,
+      itemStyle: {
+        color: i > 12 ? C.red : i > 8 ? C.amber : C.terracotta,
+        borderRadius: [3, 3, 0, 0],
+      },
+    })),
+    barWidth: '85%',
+    markLine: {
+      data: [{ xAxis: 15 }],
+      lineStyle: { color: C.red, type: 'dashed', width: 1.5 },
+      label: { formatter: 'P95', color: C.red, fontSize: 10 },
+      symbol: 'none',
+    },
+  }],
+});
+
+// ── Chart 4: status 分类分布饼图 ──
+echarts.init(document.getElementById('chart-dist-status')).setOption({
+  tooltip: {
+    trigger: 'item',
+    backgroundColor: C.paperCard,
+    borderColor: C.line,
+    textStyle: { color: C.ink, fontSize: 12 },
+  },
+  legend: {
+    bottom: 0, left: 'center',
+    textStyle: { color: C.inkSoft, fontSize: 10 },
+    itemWidth: 10, itemHeight: 8,
+  },
+  series: [{
+    type: 'pie',
+    radius: ['38%', '62%'],
+    center: ['50%', '45%'],
+    label: {
+      color: C.inkSoft,
+      fontSize: 11,
+      formatter: '{b}\n{d}%',
+    },
+    labelLine: { lineStyle: { color: C.line } },
+    data: [
+      { value: 302515, name: 'status=1', itemStyle: { color: C.terracotta } },
+      { value: 97800, name: 'status=2', itemStyle: { color: C.blue } },
+      { value: 58000, name: 'status=0', itemStyle: { color: C.amber } },
+      { value: 18000, name: 'status=3', itemStyle: { color: C.green } },
+      { value: 9894, name: 'status=4', itemStyle: { color: C.red } },
+    ],
+  }],
+});
+
+// ── Chart 5: 异常事件时间线 ──
+const anomalyDates = [];
+const anomalyCounts = [];
+for (let i = 29; i >= 0; i--) {
+  const d = new Date(today);
+  d.setDate(d.getDate() - i);
+  anomalyDates.push((d.getMonth()+1) + '/' + d.getDate());
+  const count = (i === 3 || i === 5) ? (i === 3 ? 14 : 10) : (i % 9 === 0 ? 1 : 0);
+  anomalyCounts.push(count);
+}
+echarts.init(document.getElementById('chart-anomaly')).setOption({
+  grid: { left: 35, right: 15, top: 20, bottom: 30 },
+  tooltip: {
+    trigger: 'axis',
+    backgroundColor: C.paperCard,
+    borderColor: C.line,
+    textStyle: { color: C.ink, fontSize: 12 },
+  },
+  xAxis: { type: 'category', data: anomalyDates, ...axisStyle },
+  yAxis: { type: 'value', ...axisStyle },
+  series: [{
+    type: 'bar',
+    data: anomalyCounts.map(c => ({
+      value: c,
+      itemStyle: {
+        color: c > 5 ? C.red : c > 0 ? C.amber : C.inkFaint,
+        borderRadius: [3, 3, 0, 0],
+      },
+    })),
+    barWidth: '60%',
+  }],
+});
+
+// ── Chart 6: 周期对比（归一化指数，前 7 天 = 100，消除量纲差异） ──
+const comparePrevVals = [118.5, 0.27, 2750];   // duration(s), retry_count, response_size(KB)
+const compareCurrVals = [144.2, 0.31, 2840];
+const compareIndexPrev = comparePrevVals.map(() => 100);
+const compareIndexCurr = compareCurrVals.map((v, i) => Math.round(v / comparePrevVals[i] * 1000) / 10);
+echarts.init(document.getElementById('chart-compare')).setOption({
+  grid: { left: 55, right: 25, top: 35, bottom: 30 },
+  legend: {
+    data: ['前 7 天 (基准)', '近 7 天'],
+    right: 0, top: 0,
+    textStyle: { color: C.inkSoft, fontSize: 11 },
+    itemWidth: 14, itemHeight: 8,
+  },
+  tooltip: {
+    trigger: 'axis',
+    backgroundColor: C.paperCard,
+    borderColor: C.line,
+    textStyle: { color: C.ink, fontSize: 12 },
+    formatter: function(params) {
+      const i = params[0].dataIndex;
+      const units = ['s', '', 'KB'];
+      return '<b>' + params[0].axisValue + '</b><br/>'
+        + '前 7 天: ' + comparePrevVals[i] + units[i] + ' (基准 100)<br/>'
+        + '近 7 天: ' + compareCurrVals[i] + units[i] + ' (指数 ' + compareIndexCurr[i] + ')<br/>'
+        + '变化: +' + (compareIndexCurr[i] - 100).toFixed(1) + '%';
+    },
+  },
+  xAxis: { type: 'category', data: ['duration(s)', 'retry_count', 'response_size(KB)'], ...axisStyle,
+    axisLabel: { ...axisStyle.axisLabel, fontSize: 10 },
+  },
+  yAxis: [
+    { type: 'value', name: '指数', nameTextStyle: { color: C.inkMuted, fontSize: 10 },
+      min: 90, max: 135, ...axisStyle },
+  ],
+  series: [
+    {
+      name: '前 7 天 (基准)',
+      type: 'bar',
+      data: compareIndexPrev,
+      itemStyle: { color: C.inkFaint, borderRadius: [3, 3, 0, 0] },
+      barWidth: '28%',
+    },
+    {
+      name: '近 7 天',
+      type: 'bar',
+      data: compareIndexCurr,
+      itemStyle: { color: C.terracotta, borderRadius: [3, 3, 0, 0] },
+      barWidth: '28%',
+      label: {
+        show: true, position: 'top',
+        color: C.terracottaDeep, fontSize: 10, fontWeight: 600,
+        fontFamily: 'JetBrains Mono',
+        formatter: function(p) {
+          return '+' + (compareIndexCurr[p.dataIndex] - 100).toFixed(1) + '%';
+        }
+      },
+    },
+  ],
+});
+
+// ── Chart 7: 日请求量对比 ──
+const volDates = [];
+const volCurrent = [];
+const volPrevious = [];
+for (let i = 6; i >= 0; i--) {
+  const d = new Date(today);
+  d.setDate(d.getDate() - i);
+  volDates.push((d.getMonth()+1) + '/' + d.getDate());
+  const dayOfWeek = d.getDay();
+  const weekendMult = (dayOfWeek === 0 || dayOfWeek === 6) ? 0.75 : 1;
+  volCurrent.push(Math.round((16000 + (i % 3) * 640) * weekendMult));
+  volPrevious.push(Math.round((15000 + (i % 4) * 480) * weekendMult));
+}
+echarts.init(document.getElementById('chart-volume')).setOption({
+  grid: { left: 50, right: 20, top: 35, bottom: 30 },
+  legend: {
+    data: ['前 7 天', '近 7 天'],
+    right: 0, top: 0,
+    textStyle: { color: C.inkSoft, fontSize: 11 },
+    itemWidth: 14, itemHeight: 8,
+  },
+  tooltip: {
+    trigger: 'axis',
+    backgroundColor: C.paperCard,
+    borderColor: C.line,
+    textStyle: { color: C.ink, fontSize: 12 },
+  },
+  xAxis: { type: 'category', data: volDates, ...axisStyle },
+  yAxis: { type: 'value', ...axisStyle },
+  series: [
+    {
+      name: '前 7 天',
+      type: 'line', smooth: true, symbol: 'none',
+      data: volPrevious,
+      lineStyle: { color: C.inkFaint, width: 1.5, type: 'dashed' },
+      itemStyle: { color: C.inkFaint },
+    },
+    {
+      name: '近 7 天',
+      type: 'line', smooth: true, symbol: 'circle', symbolSize: 5,
+      data: volCurrent,
+      lineStyle: { color: C.blue, width: 2.5 },
+      itemStyle: { color: C.blue },
+      areaStyle: {
+        color: { type: 'linear', x: 0, y: 0, x2: 0, y2: 1,
+          colorStops: [
+            { offset: 0, color: 'rgba(74,123,168,0.15)' },
+            { offset: 1, color: 'rgba(74,123,168,0.01)' },
+          ]
+        }
+      },
+    },
+  ],
+});
+
+// ── Responsive resize ──
+window.addEventListener('resize', () => {
+  document.querySelectorAll('[id^="chart-"]').forEach(el => {
+    const inst = echarts.getInstanceByDom(el);
+    if (inst) inst.resize();
+  });
+});
+</script>
+</body>
+</html>
