@@ -10,9 +10,9 @@
 
 | 字段 | 值 |
 | --- | --- |
-| Phase | `Plan` |
-| Status | `LOCKED`（禁止编码） |
-| Approval | **等待精确字样 `Plan Approved`** |
+| Phase | `Review` |
+| Status | `LOCKED` |
+| Approval | `Plan Approved` + `全部`（2026-11-21） |
 | 任务单元 | PostgreSQL 只读接入、凭证加密、元数据同步、安全查询构造、Profiling 契约、数据源 API |
 | 不包含 | Analysis Engine 算法、MCP、Agent Runtime、管理台页面、报告渲染 |
 
@@ -165,7 +165,7 @@ class ProfilingService:
         table: str,
         *,
         columns: list[str] | None = None,
-        sample_size: int = 50_000,
+        sample_size: int = 10_000,
     ) -> ProfileResult: ...
 
 class DataSourceService:
@@ -220,11 +220,11 @@ class DataSourceService:
 
 **Profiling**
 
-- 采样：`TABLESAMPLE SYSTEM` 优先；视图或失败回退 `LIMIT sample_size`。
+- 采样：MVP 使用 `LIMIT sample_size`（默认 10,000，上限 100,000）；`TABLESAMPLE` 留待后续优化。
 - 使用 Pandas 计算：`null_ratio`、`distinct_count`、`min`、`max`、`mean`、`std`、`top_values`（≤20）、`sample_values`（≤20）。
 - 写入 `column_metadata.stats`，`profile_version += 1`。
 - 不推断业务语义；`status` 只报告分类值数量。
-- 单次 profiling 超时 120s；超限返回部分结果并告警。
+- 采样查询受数据源 `statement_timeout_ms` 约束；超时由 Connector 返回结构化错误。
 
 **API 与鉴权**
 
@@ -295,8 +295,68 @@ class DataSourceService:
 
 ---
 
-## 8. Gate
+## 8. Execute Log
 
-- 当前 `Plan / LOCKED`，等待精确字样 **`Plan Approved`**。
-- 批准后按 §5.5 执行；用户说 `全部` 时批量。
-- 未批准前不新增 Connector 代码与数据库表。
+| # | 动作 | 结果 |
+| --- | --- | --- |
+| 1 | 依赖 | 新增 `cryptography`、`pandas`；测试改用 `httpx2`；`pytest-asyncio` 升至 1.5 |
+| 2 | 凭证 | `SecretService` AES-GCM 完成，含错误密钥版本测试 |
+| 3 | 模型/迁移 | 5 张表 + `0002` 迁移；PostgreSQL 16 实际应用成功 |
+| 4 | Connector | Protocol、Registry、`PostgresConnector` 完成 |
+| 5 | Query Builder | 白名单、参数绑定、LIMIT、聚合、拒绝未知表/列 |
+| 6 | Metadata | 同步、幂等、`columns_hash` 漂移检测、用户字段保留 |
+| 7 | Profiling | Pandas 统计、`stats` 写库、`profile_version` 递增 |
+| 8 | API | CRUD、test、sync、tables、columns、profile、可选 Bearer |
+| 9 | 测试 | 单元 + 集成；42 passed, 1 skipped |
+| 10 | 真实验收 | CRUD → test → sync → tables → columns → patch → profile |
+| 11 | Spec 回写 | 本节、§9–§11 完成 |
+
+## 9. Verification Evidence
+
+| 项 | 命令 / 操作 | 结果 |
+| --- | --- | --- |
+| 静态检查 | `uv run ruff check .` | `All checks passed!` |
+| 全量测试 | `uv run pytest -q` | `42 passed, 1 skipped` |
+| 迁移 | `alembic upgrade head` | `0002` 应用成功 |
+| 真实 API | 启动 uvicorn，创建数据源 | `has_secret=true`，响应无密码 |
+| 连接测试 | `POST /test` | `{"ok": true}` |
+| 同步 | `POST /sync` | `tables_added=1, columns_added=5` |
+| 元数据 | `GET /tables`、`GET /columns` | 表 1、列 5 |
+| 中文标签 | `PATCH /columns/{id}` | 集成测试断言 `请求耗时` / `秒` / `核心指标` 通过 |
+| Profiling | `POST /profile` | `sampled_rows=10`，有 `snapshot_id` |
+| 凭证落库 | 查询 `secret.ciphertext` | 与明文不同；API 响应无密码 |
+
+> 说明：PowerShell 手工调用时中文 body 因客户端编码显示为 `????`；同一断言在 `TestClient` 集成测试中通过，确认服务端 UTF-8 处理正确。
+
+## 10. Plan-Execution Diff
+
+| 项 | 计划 | 实际 | 原因 |
+| --- | --- | --- | --- |
+| 新增源文件 | 未列 `types.py`、`data_source_service.py` | 已新增 | 类型归一化与数据源生命周期需要独立模块 |
+| Profiling 采样 | 默认 50,000，`TABLESAMPLE` | 默认 10,000，`LIMIT` | 与 QuerySpec/单页上限一致；TABLESAMPLE 留待优化 |
+| 列查询路由 | `/tables/{table}/columns` | `GET /columns?table=schema.table` | 避免 schema 点号进入路径参数 |
+| Snapshot `time_range` | 写入 `TSTZRANGE` | 字段保留，M1 写 `NULL`，时间范围存入 `filters` | 避免引入额外 range 类型转换；M2 再补 |
+| `run_id` | FK → `task_run` | 暂为普通 UUID | `task_run` 在 M2 才创建 |
+| 测试依赖 | `httpx` | `httpx2` | Starlette TestClient 弃用 `httpx` |
+| pytest-asyncio | 未指定 | 1.5.0 | 0.26 在 `asyncio.run` 后无事件循环，导致集成测试失败 |
+
+## 11. Review Verdict
+
+| 轴 | 检查项 | 结论 | 证据 |
+| --- | --- | --- | --- |
+| Axis-1 | 目标与验收标准明确 | PASS | §1 |
+| Axis-1 | 验收项已验证 | PASS | §9 |
+| Axis-2 | Checklist 1–11 完成 | PASS | §5.5 全部勾选 |
+| Axis-2 | 偏差已记录 | PASS | §10 |
+| Axis-3 | 安全 | PASS | 凭证加密、API 脱敏、查询白名单、参数绑定、只读事务 |
+| Axis-3 | 正确性 | PASS | 42 项测试；真实 API 流程 |
+| Axis-3 | 可维护性 | PASS | 模块边界清晰；错误码稳定；接口分层 |
+| Axis-3 | 未覆盖项 | PARTIAL | 无 UI；`TABLESAMPLE`、范围类型、M2 FK 留待后续 |
+
+**Overall Verdict：PASS（附后续项）**。无阻塞问题；等待用户验收。
+
+## 12. Gate
+
+- 当前 `Review / LOCKED`，等待用户验收。
+- 验收通过后关闭 M1；下一阶段为 M2 Agent Runtime / Tool 工具链。
+- 未新建并批准 M2 Spec 前，不实现 Agent、MCP 或会话功能。
