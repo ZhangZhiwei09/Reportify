@@ -8,8 +8,10 @@ from typing import Any
 from uuid import UUID
 
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from reportify.core.errors import ConversationBusy
 from reportify.db.models import AnalysisTask, TaskRun
 
 ACTIVE_RUN_STATUSES = ("queued", "running", "waiting_approval")
@@ -79,7 +81,14 @@ async def create_run(
         model_settings=model_settings or {},
     )
     session.add(run)
-    await session.commit()
+    try:
+        await session.commit()
+    except IntegrityError as exc:
+        # The partial unique index guarantees one active run per conversation.
+        await session.rollback()
+        raise ConversationBusy(
+            f"conversation already has an active run: {conversation_id}"
+        ) from exc
     await session.refresh(run)
     return run
 

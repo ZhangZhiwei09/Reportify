@@ -269,7 +269,7 @@ Langfuse 通过 OTLP 接入属于可选验证项，不作为默认依赖。
 | M3 MCP | Hub、发现、授权、审计、Toolset 集成 | Fake Server 上完成发现/调用/拒绝/超时 |
 | M4 配置与交付 | Skills/Templates、8 个视图、Docker Compose、OTel | 本地一键启动；配置变更生效；文档与实现一致 |
 
-**进度（2026-11-22）**：M0–M5 全部实现并通过验收证据（277 项测试 + 真实进程），
+**进度（2026-11-22）**：M0–M5 全部实现并通过验收证据（281 项测试 + 真实进程），
 见 `mydocs/specs/` 下各里程碑 Spec。M5 补齐了 07 契约的最后三处：工具审批（`waiting_approval` 同 run 续跑）、
 Workspace 文件 API 与 `workspace_audit` 落库、`GET /config`。
 未做（明确属于 §12+）：ARQ worker 与定时任务配置、报告正式渲染器、OAuth 2.1、审批超时自动取消。

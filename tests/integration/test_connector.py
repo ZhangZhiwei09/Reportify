@@ -85,3 +85,40 @@ async def test_execute_rejects_unknown_table(
         await connector.execute(
             QuerySpec(table="public.missing", columns=[ColumnRef(name="id")])
         )
+
+
+async def test_snapshot_records_time_range(
+    registry,
+    metadata_service,
+    data_source,
+    sample_schema: str,
+    session_factory,
+) -> None:
+    """08 §6.5: the query's time range is stored on the snapshot, not just filters."""
+    from datetime import UTC, datetime, timedelta
+
+    from reportify.db.models import DatasetSnapshot
+
+    await metadata_service.sync(data_source.id)
+    connector = await registry.get(data_source.id)
+
+    end = datetime.now(UTC)
+    start = end - timedelta(days=1)
+    spec = QuerySpec(
+        table=f"{sample_schema}.events",
+        columns=[ColumnRef(name="id")],
+        time_range={
+            "column": "created_at",
+            "start": start,
+            "end": end,
+        },
+        limit=5,
+    )
+    result = await connector.execute(spec)
+
+    async with session_factory() as session:
+        snapshot = await session.get(DatasetSnapshot, result.snapshot_id)
+    assert snapshot is not None
+    assert snapshot.time_range is not None
+    assert snapshot.time_range.lower is not None
+    assert snapshot.time_range.upper is not None

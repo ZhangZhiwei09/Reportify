@@ -14,7 +14,7 @@ from typing import Any
 from uuid import UUID
 
 import asyncpg
-from sqlalchemy import Text, bindparam, select, text
+from sqlalchemy import Text, bindparam, func, select, text
 from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.dialects.postgresql import dialect as postgres_dialect
 from sqlalchemy.engine import URL
@@ -264,6 +264,11 @@ class PostgresConnector:
             query_fingerprint=fingerprint,
             row_count=len(rows),
             columns=[column.model_dump() for column in result_columns],
+            time_range=(
+                func.tstzrange(spec.time_range.start, spec.time_range.end, "[]")
+                if spec.time_range and spec.time_range.start and spec.time_range.end
+                else None
+            ),
             filters=filters_json,
         )
         async with self._session_factory() as session:

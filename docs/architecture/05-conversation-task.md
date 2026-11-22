@@ -211,6 +211,11 @@ stateDiagram-v2
 - 不同 Conversation 可并发；各自独立锁。
 - 锁使用 PostgreSQL advisory lock，连接断开自动释放。
 
+> 实现注记（2026-11-22，M5）：除进程内 `asyncio.Lock` 外，数据库上用**部分唯一索引**
+> `uq_task_run_active_conversation ON task_run(conversation_id) WHERE status IN ('queued','running','waiting_approval')`
+> 兜底，因此「一会话一个活跃 run」在多进程下同样成立；冲突时 `create_run` 抛 `ConversationBusy` → 409。
+> 未采用 advisory lock：部分唯一索引更简单且不依赖连接生命周期。
+
 ---
 
 ## 8. 报告迭代（最小）
