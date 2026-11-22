@@ -206,15 +206,16 @@ class WorkspaceService:
 | 4 | Workspace | `walk_files`/`read_file` + `WorkspaceService` + 4 个端点；`workspace_audit` 记录 `loaded`/`changed`/`rejected` |
 | 5 | Config | `GET /api/v1/config`，只返回非敏感能力与限额 |
 | 6 | 修复 | 授权层原先把 `needs_approval` 当作「隐藏」，导致审批门永不触发；改为「可见但需审批」 |
-| 7 | 验证 | `ruff` 通过；`pytest` 273 passed；真实进程验证 config/workspace/approvals |
-| 8 | 回写 | 02 §11.1、05 §9、07 §5.1、08 §6.9、09 §12 |
+| 7 | 收尾 | 分析工作台审批卡片（§8.1 第 6 步）；`core/netenv.py` 让回环地址绕过系统代理 |
+| 8 | 验证 | `ruff` 通过；`pytest` 277 passed；真实进程验证 config/workspace/approvals |
+| 9 | 回写 | 02 §11.1、03 §12.1、05 §9、07 §5.1/§8.1、08 §6.9、09 §12 |
 
 ## 9. Verification Evidence
 
 | 项 | 命令 / 操作 | 结果 |
 | --- | --- | --- |
 | 静态检查 | `uv run ruff check .` | `All checks passed!` |
-| 全量测试 | `REPORTIFY_TEST_DATABASE_URL=… uv run pytest -q` | `273 passed, 1 skipped in 81.51s` |
+| 全量测试 | `REPORTIFY_TEST_DATABASE_URL=… uv run pytest -q` | `277 passed, 1 skipped in 79.35s` |
 | 迁移 | `alembic upgrade head` | `0005`；`pending_approvals` 列存在 |
 | 审批挂起 | destructive MCP 工具 + 授权 | run `waiting_approval`；`fake_mcp.calls == []`；DB 有 `approval_required` 事件；无审计行 |
 | 批准 | `POST /approvals/{id}` `{"decision":"approve"}` | 同 run 续跑至 `succeeded`；工具执行一次；task `completed`；待批清空 |
@@ -225,6 +226,8 @@ class WorkspaceService:
 | Workspace | 列表/读取/隐藏文件/穿越 | 200 / 200 / 不列出 / 400-404-422 且不泄漏 |
 | 审计 | reload 两次 | 首次 `loaded>0`，第二次全 0；改文件后 `changed>=1` |
 | Config | `GET /api/v1/config` | 200；`features.approvals=true`；响应不含任何密钥 |
+| 审批卡片 | `GET /analysis` | 页面包含 `approval-card` 骨架（默认 hidden），由 `views/analysis.js` 在 `approval_required` 时展开 |
+| 代理绕行 | `tests/unit/test_netenv.py` | 回环地址被追加进 `NO_PROXY`/`no_proxy`；重复调用幂等；保留既有条目 |
 | 真实进程 | uvicorn | `/config` 200、`/workspace/files` 200、`/workspace/reload` 200、`/workspace/audits` 200、未知 run 审批 404 |
 
 ## 10. Plan-Execution Diff
@@ -236,8 +239,8 @@ class WorkspaceService:
 | 待批项存储 | 计划用 `pending_approvals` | 同，含 `decision` 字段 | 部分决策需要持久化 |
 | 拒绝审计 | 审计 `rejected` | 同，`error_code=approval_rejected` | SDK 把拒绝表达为 `ToolReturnPart` 文本 |
 | 审批超时 | Q5 不实现 | 同 | 05 §11 的 24h 策略留到后续 |
-| 测试 | 计划 | 新增 7 个审批用例 + 8 个 workspace/config 用例 | — |
-| 环境 | — | 测试 `conftest` 设置 `NO_PROXY=127.0.0.1,localhost,::1` | 本机系统代理（Clash 7890）会把本地 MCP 请求代理成 502 |
+| 测试 | 计划 | 新增 7 个审批用例 + 8 个 workspace/config 用例 + 3 个代理绕行用例 | — |
+| 环境 | — | 应用启动时把回环地址写入 `NO_PROXY`（`core/netenv.py`），测试 `conftest` 也做同样设置 | 本机系统代理（Clash 7890）会把本地 MCP 请求代理成 502；产品侧也需修复，否则本地 MCP 在真实进程里不可用 |
 
 > 过程记录：本机 Windows 系统代理（`127.0.0.1:7890`）会让 httpx 把发往 `127.0.0.1` 的 MCP 请求也走代理并返回 502；
 > 测试通过 `NO_PROXY` 规避。**生产/本地手工使用时，若启用了系统代理，需要把回环地址加入 `NO_PROXY`**，否则本地 MCP Server 会显示连接失败。

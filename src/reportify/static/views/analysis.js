@@ -1,10 +1,12 @@
 (function () {
   "use strict";
 
-  const state = { conversationId: null, stream: null, taskId: null };
+  const state = { conversationId: null, stream: null, taskId: null, runId: null };
   const conversationList = document.getElementById("conversation-list");
   const messageList = document.getElementById("message-list");
   const eventList = document.getElementById("event-list");
+  const approvalCard = document.getElementById("approval-card");
+  const approvalList = document.getElementById("approval-list");
   const form = document.getElementById("message-form");
   const input = document.getElementById("message-input");
   const runState = document.getElementById("run-state");
@@ -71,12 +73,65 @@
     eventList.scrollTop = eventList.scrollHeight;
   }
 
+  function clearApprovals() {
+    RF.clear(approvalList);
+    approvalCard.hidden = true;
+  }
+
+  async function decide(approvalId, decision, node) {
+    if (!state.runId) {
+      return;
+    }
+    try {
+      const result = await RF.post(
+        "/runs/" + state.runId + "/approvals/" + encodeURIComponent(approvalId),
+        { decision: decision }
+      );
+      node.remove();
+      if (!approvalList.children.length) {
+        approvalCard.hidden = true;
+      }
+      runState.textContent =
+        result.status === "resuming" ? "已批准，继续执行…" : "等待其余审批…";
+    } catch (error) {
+      RF.toast("审批失败：" + error.message, "error");
+    }
+  }
+
+  function renderApproval(payload) {
+    approvalCard.hidden = false;
+    const item = RF.el("li", undefined, "list-item");
+
+    const label = RF.el("span");
+    label.appendChild(RF.el("strong", payload.tool_name));
+    label.appendChild(document.createTextNode(" "));
+    label.appendChild(RF.badge(payload.risk || "write", "danger"));
+    item.appendChild(label);
+
+    const actions = RF.el("span");
+    const approve = RF.el("button", "批准", "btn primary");
+    approve.addEventListener("click", function () {
+      decide(payload.approval_id, "approve", item);
+    });
+    const deny = RF.el("button", "拒绝", "btn danger");
+    deny.addEventListener("click", function () {
+      decide(payload.approval_id, "deny", item);
+    });
+    actions.appendChild(approve);
+    actions.appendChild(deny);
+    item.appendChild(actions);
+
+    approvalList.appendChild(item);
+    runState.textContent = "等待审批";
+  }
+
   async function send(content) {
     if (!state.conversationId) {
       RF.toast("请先选择或新建会话。", "error");
       return;
     }
     RF.clear(eventList);
+    clearApprovals();
     runState.textContent = "运行中…";
     try {
       const result = await RF.post(
@@ -84,13 +139,20 @@
         { content: content, task_id: state.taskId }
       );
       state.taskId = result.task_id;
+      state.runId = result.run_id;
       if (state.stream) {
         state.stream.close();
       }
       state.stream = RFStream.open(result.run_id, {
-        onEvent: appendEvent,
+        onEvent: function (name, payload) {
+          if (name === "approval_required") {
+            renderApproval(payload);
+          }
+          appendEvent(name, payload);
+        },
         onDone: function () {
           runState.textContent = "已完成";
+          clearApprovals();
           loadMessages();
         }
       });

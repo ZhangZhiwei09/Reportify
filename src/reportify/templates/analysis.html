@@ -24,4 +24,11 @@
   <div class="card-head"><h2>执行过程</h2><span id="run-state" class="meta">未开始</span></div>
   <ol id="event-list" class="events"></ol>
 </section>
+<section class="card" id="approval-card" hidden>
+  <div class="card-head">
+    <h2>等待审批</h2>
+    <span class="meta">危险操作需要你确认后才会执行</span>
+  </div>
+  <ul id="approval-list" class="list"></ul>
+</section>
 {% endblock %}

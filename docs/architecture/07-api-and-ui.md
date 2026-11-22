@@ -85,7 +85,9 @@
 
 > 实现注记（2026-11-22，M5）：§5.1–§5.5 的路由已全部落地。审批接口的 `decision` 取
 > `approve`/`deny`；全部待批项决策后同一个 run 续跑（`waiting_approval → running → succeeded`）。
-> `/runs/{id}/events` 在 run 处于 `waiting_approval` 时保持连接（不发终态事件），前端据此显示审批卡片。
+> `/runs/{id}/events` 在 run 处于 `waiting_approval` 时保持连接（不发终态事件）。
+> 分析工作台已实现审批卡片：收到 `approval_required` 事件后展示工具名、风险与「批准/拒绝」按钮，
+> 提交后调用审批接口并在全部决策后继续执行（§8.1 第 6 步）。
 
 **POST 消息请求体**：
 

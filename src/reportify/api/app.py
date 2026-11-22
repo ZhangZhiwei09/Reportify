@@ -31,6 +31,7 @@ from reportify.core.db import create_engine, create_session_factory
 from reportify.core.errors import ApiError
 from reportify.core.events import EventBroker, EventPublisher
 from reportify.core.logging import configure_logging
+from reportify.core.netenv import ensure_loopback_bypasses_proxy
 from reportify.core.telemetry import configure_telemetry
 from reportify.modules.connectors.base import ConnectorRegistry
 from reportify.modules.connectors.data_source_service import DataSourceService
@@ -63,6 +64,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     settings: Settings = app.state.settings
     configure_logging(settings.log_level)
     configure_telemetry(settings)
+    ensure_loopback_bypasses_proxy()
 
     engine = create_engine(settings)
     session_factory = create_session_factory(engine)

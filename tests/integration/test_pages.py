@@ -56,3 +56,11 @@ def test_pages_do_not_leak_workspace_content(pages_client) -> None:
     body = pages_client.get("/skills").text
     # the Skills page shows a placeholder until JS fetches the API
     assert "选择左侧 Skill 查看全文。" in body
+
+
+def test_analysis_page_has_an_approval_card(pages_client) -> None:
+    body = pages_client.get("/analysis").text
+    assert 'id="approval-card"' in body
+    assert 'id="approval-list"' in body
+    # rendered hidden; the view reveals it on an approval_required event
+    assert "hidden" in body.split('id="approval-card"')[1][:40]

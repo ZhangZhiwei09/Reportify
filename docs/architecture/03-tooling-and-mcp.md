@@ -392,6 +392,7 @@ MCP URL 与 OAuth 发现链路的每个 URL 都要校验：
 | 未知工具 | SDK 把「工具不存在」作为结果回灌模型（`Unknown tool name: …`），run 不会失败 | 审计记 `denied` + `unknown_tool`，而不是 `succeeded` |
 | Server 不可达事件 | 终态事件 `error` 会关闭 SSE，不能用于「本次 run 少一个 Server」这种非终态告警 | 改为写入 `plan` 事件的 `mcp_unavailable` 与 `warnings`，并记结构化日志 |
 | 协议版本 | `MCPServer` 的 `server_info` 只暴露 name/version，未提供协议版本 | `protocol_version` 字段保留为空，待 SDK 暴露后再填 |
+| 系统代理 | 若主机启用了系统代理（如本地 clash），httpx 会把发往 `127.0.0.1` 的 MCP 请求也走代理并返回 502 | 应用启动时把 `127.0.0.1`/`localhost`/`::1` 追加进 `NO_PROXY`（`core/netenv.py`）；这是回环地址的必要例外，不影响其他主机的代理设置 |
 
 ---
 
