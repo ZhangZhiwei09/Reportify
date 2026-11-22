@@ -220,15 +220,15 @@ sections:
   - id: overview
     title: 经营概览
     required: true
-    blocks: [kpi, conclusion]
+    blocks: [kpi, text]
   - id: trends
     title: 趋势分析
     required: true
-    blocks: [line_chart, comparison]
+    blocks: [chart, table]
   - id: anomalies
     title: 异常数据
     required: false
-    blocks: [bar_chart, table, conclusion]
+    blocks: [table, text]
 kpis:
   max: 5
   require_definition: true
@@ -243,14 +243,23 @@ output:
 
 ### 8.2 允许的 block 类型
 
-| 类型 | 说明 |
+**实现词汇（M2 起为唯一真相源）**：`ReportSchema` 只接受下列四种 block，模板校验也使用同一集合。
+
+| `type` | 关键字段 | 说明 |
+| --- | --- | --- |
+| `kpi` | `label`、`value`、`unit`、`definition`、`lineage_refs` | KPI 卡片 |
+| `chart` | `chart_type`（`line` / `bar` / `pie` / `scatter`）、`series`、`definition`、`lineage_refs` | ECharts 图表数据 |
+| `table` | `columns`、`rows`、`lineage_refs` | 数据表格 |
+| `text` | `text` | 说明、结论、口径注解 |
+
+**设计名到实现名的映射**（早期草稿用过更细的名字，实现已收敛）：
+
+| 设计名 | 实现 |
 | --- | --- |
-| `kpi` | KPI 卡片 |
-| `line_chart` / `bar_chart` / `pie_chart` / `scatter_chart` | ECharts 图表 |
-| `table` | 数据表格 |
-| `conclusion` | 分析结论 |
-| `comparison` | 周期对比 |
-| `source_note` | 数据来源与口径 |
+| `line_chart` / `bar_chart` / `pie_chart` / `scatter_chart` | `chart` + `chart_type` |
+| `conclusion` | `text` |
+| `source_note` | 渲染器统一生成的 lineage 区块，不需要单独 block |
+| `comparison` | 未实现；用 `table` 表达对比结果（§12+ 可增加专用 block） |
 
 **禁止**：`html`、`script`、`iframe`、自定义 JS、外部资源引用。
 

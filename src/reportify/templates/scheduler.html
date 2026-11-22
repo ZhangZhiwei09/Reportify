@@ -1,0 +1,15 @@
+{% extends "layout.html" %}
+{% block content %}
+<section class="card">
+  <h2>定时任务</h2>
+  <p class="notice">
+    定时任务的创建与调度属于 §12+ 范围，本版本只展示占位说明。
+    当前可在「分析工作台」手动触发一次运行。
+  </p>
+  <ul class="list">
+    <li class="list-item"><span>调度器</span><span class="badge muted">未启用（§12+）</span></li>
+    <li class="list-item"><span>Cron 配置</span><span class="badge muted">未启用（§12+）</span></li>
+    <li class="list-item"><span>最近一次手动运行</span><span id="last-run" class="meta">—</span></li>
+  </ul>
+</section>
+{% endblock %}

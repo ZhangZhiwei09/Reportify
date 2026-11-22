@@ -1,0 +1,27 @@
+{% extends "layout.html" %}
+{% block content %}
+<section class="grid two">
+  <div class="card">
+    <div class="card-head">
+      <h2>会话</h2>
+      <button id="new-conversation" class="btn">新建会话</button>
+    </div>
+    <ul id="conversation-list" class="list"></ul>
+  </div>
+  <div class="card">
+    <div class="card-head">
+      <h2>对话</h2>
+      <span id="active-task" class="meta"></span>
+    </div>
+    <div id="message-list" class="messages"></div>
+    <form id="message-form" class="composer">
+      <textarea id="message-input" rows="3" placeholder="描述你的分析需求…" required></textarea>
+      <button class="btn primary" type="submit">发送</button>
+    </form>
+  </div>
+</section>
+<section class="card">
+  <div class="card-head"><h2>执行过程</h2><span id="run-state" class="meta">未开始</span></div>
+  <ol id="event-list" class="events"></ol>
+</section>
+{% endblock %}

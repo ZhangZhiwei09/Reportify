@@ -31,7 +31,10 @@ class DatasetSnapshot(Base, TimestampMixin):
         ForeignKey("table_metadata.id", ondelete="SET NULL"),
         nullable=True,
     )
-    run_id: Mapped[UUID | None] = mapped_column(nullable=True)
+    run_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("task_run.id", ondelete="SET NULL"),
+        nullable=True,
+    )
     purpose: Mapped[str] = mapped_column(String(16), nullable=False)
     sql: Mapped[str] = mapped_column(Text, nullable=False)
     params: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)

@@ -1,0 +1,18 @@
+{% extends "layout.html" %}
+{% block content %}
+<section class="grid two">
+  <div class="card">
+    <div class="card-head">
+      <h2>Skills</h2>
+      <span>
+        <button id="reload" class="btn">重载</button>
+      </span>
+    </div>
+    <ul id="skill-list" class="list"></ul>
+  </div>
+  <div class="card">
+    <div class="card-head"><h2>详情</h2><button id="validate" class="btn" disabled>校验</button></div>
+    <pre id="skill-detail" class="code">选择左侧 Skill 查看全文。</pre>
+  </div>
+</section>
+{% endblock %}

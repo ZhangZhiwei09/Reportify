@@ -377,11 +377,27 @@ MCP URL 与 OAuth 发现链路的每个 URL 都要校验：
 | 审计表膨胀 | 写入变慢 | 按 180 天清理；归档摘要 |
 | 授权被撤销 | 运行中工具消失 | 执行前二次校验拒绝；事件记录 |
 
+### 12.1 实现核对（2026-11-22，mcp 2.3.0 / PydanticAI 2.71.0，M3）
+
+实测后与上文不一致的地方，实现以下列结论为准：
+
+| 项 | 实测结论 | 影响 |
+| --- | --- | --- |
+| FastMCP 类名 | `mcp` 2.x 已把 `FastMCP` 改名为 `MCPServer`（`mcp.server.mcpserver`）；导入 `mcp.server.fastmcp` 会直接报错并给出迁移提示 | 文档中的「FastMCP」一律理解为 `MCPServer`；Fake Server 与真实 Server 都用它 |
+| 客户端栈 | `mcp.client.streamable_http.streamablehttp_client` 在 2.x 已移除；官方改为 `mcp.Client` / `ClientSession` | 与 §8.1 的决策一致：管理面与 Agent 面统一用 `MCPToolset`，不额外维护官方 SDK 连接 |
+| 管理面发现 | `MCPToolset` 可作异步上下文管理器：`async with ts: await ts.list_tools()`；工具对象字段是 `name`/`description`/`input_schema`（不是 `input_json_schema`） | Hub 的 test/discover 用短连接上下文 |
+| `prefixed()` 分隔符 | `prefixed(prefix)` 会自己补 `_`；prefix 若以 `_` 结尾会得到 `prefix__name` | 前缀写 `mcp_<slug>`，最终名为 `mcp_<slug>_<tool>` |
+| 过滤与探测 | `filtered()` 的谓词需要 `RunContext`，不能在无上下文时 `list_tools()` | 可达性探测用**独立的普通 toolset**，run 内再用 filtered 版本 |
+| 工具超时 | 不抛异常：`FunctionToolResultEvent` 的 `ToolReturnPart.content` 是字符串 `Request 'tools/call' timed out` | 审计按字符串判定 `timeout`；不能只依赖异常类型 |
+| 未知工具 | SDK 把「工具不存在」作为结果回灌模型（`Unknown tool name: …`），run 不会失败 | 审计记 `denied` + `unknown_tool`，而不是 `succeeded` |
+| Server 不可达事件 | 终态事件 `error` 会关闭 SSE，不能用于「本次 run 少一个 Server」这种非终态告警 | 改为写入 `plan` 事件的 `mcp_unavailable` 与 `warnings`，并记结构化日志 |
+| 协议版本 | `MCPServer` 的 `server_info` 只暴露 name/version，未提供协议版本 | `protocol_version` 字段保留为空，待 SDK 暴露后再填 |
+
 ---
 
 ## 13. Open Questions
 
-1. MVP 是否实现 OAuth，还是先只支持 Bearer？
-2. 管理面是否直接使用官方 `mcp` v2 SDK（`discover()` / `list_tools()`）以获取更完整协议状态？
-3. MCP 工具 Schema 变化后，是否强制所有 grant 失效？
+1. MVP 是否实现 OAuth，还是先只支持 Bearer？→ **M3 已定：只做 `none` 与 `bearer`**，OAuth 字段保留。
+2. 管理面是否直接使用官方 `mcp` v2 SDK（`discover()` / `list_tools()`）以获取更完整协议状态？→ **M3 结论：不引入第二套栈**，见 §12.1。
+3. MCP 工具 Schema 变化后，是否强制所有 grant 失效？→ **M3 实现：保留 grant，但把 `risk_acknowledged` 重置为 false**，写工具需重新确认。
 4. 是否需要工具级「结果缓存」以减少重复调用？当前只缓存工具清单。

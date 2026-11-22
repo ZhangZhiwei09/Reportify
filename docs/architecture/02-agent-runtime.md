@@ -313,6 +313,21 @@ mcp_toolsets = [
 - 工具参数必须脱敏后入事件；完整结果不落事件表。
 - SSE 断线可通过 `run_event` 重放（按 `sequence`）。
 
+### 11.1 实现核对（2026-11-21，PydanticAI 2.71.0，M2）
+
+实测后与上表的差异，实现以本节为准：
+
+| 项 | 实测结论 | 处理 |
+| --- | --- | --- |
+| 事件流 API | `run_stream_events(...)` 返回异步上下文管理器，必须 `async with ... as events` | 实现按此；§7 时序图只是示意 |
+| `AgentRunResultEvent` | 从 `pydantic_ai` 顶层导出，不在 `pydantic_ai.messages` | 实现从顶层导入 |
+| `FunctionToolResultEvent` | `.part` 才是工具返回值（`ToolReturnPart.content`）；`.content` 是追加给模型的下一条 user 内容（通常为 `None`） | 审计与事件从 `.part` 取值 |
+| `model_request` 时机 | SDK 没有「响应开始」事件；`PartStartEvent(index=0)` 是每次模型响应起点 | 以它为代理发 `model_request`，真实 usage 由收尾的 `usage` 事件给出 |
+| `report_generated` | 由 `generate_report` 工具在生成成功时直接发布（早于 `tool_result`） | 报告引用先于工具结果可见，SSE 顺序与工具执行一致 |
+| `approval_required` | M2 未实现审批；内置工具无 `destructive` 级 | M3 随 MCP 写工具落地 |
+| 循环检测 | 相同 `(tool_name, args)` 第 3 次调用时中止 run（`error.code=loop_detected`） | 第 2 次仅计数，不发 `ModelRetry`（事件流无法回注提示） |
+| 终态事件 | 成功/取消发 `run_completed`（带 `status`），失败/超时发 `error` | SSE 以二者为关闭条件 |
+
 ---
 
 ## 12. 持久化与恢复

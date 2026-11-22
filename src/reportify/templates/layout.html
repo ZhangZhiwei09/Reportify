@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ title }} · Reportify</title>
+  <link rel="stylesheet" href="/static/app.css">
+</head>
+<body data-view="{{ active }}">
+  <div class="shell">
+    <aside class="sidebar">
+      <div class="brand">Reportify</div>
+      <nav class="nav">
+        {% for key, label in [("analysis", "分析工作台"), ("reports", "报告库"),
+                              ("scheduler", "定时任务"), ("sources", "数据源"),
+                              ("metadata", "字段元数据"), ("mcp", "MCP Servers"),
+                              ("skills", "Skills"), ("templates", "Report Templates")] %}
+        <a class="nav-item{% if active == key %} active{% endif %}" href="/{{ key }}">{{ label }}</a>
+        {% endfor %}
+      </nav>
+      <div class="sidebar-foot">本地模式 · MVP</div>
+    </aside>
+    <div class="content">
+      <header class="topbar">
+        <h1>{{ title }}</h1>
+        <span id="app-status" class="status" aria-live="polite"></span>
+      </header>
+      <div id="app-toast" class="toast" role="status" hidden></div>
+      <main class="page">
+        {% block content %}{% endblock %}
+      </main>
+    </div>
+  </div>
+  <script src="/static/api.js"></script>
+  <script src="/static/stream.js"></script>
+  <script src="/static/views/{{ active }}.js"></script>
+</body>
+</html>

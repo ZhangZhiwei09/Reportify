@@ -222,6 +222,11 @@ static/
 └── views/*.js               # 每个页面的轻量逻辑
 ```
 
+> 实现注记（2026-11-22，M4）：以上文件已按此结构落地。页面由 FastAPI 直接返回 Jinja2 骨架
+> （`GET /analysis` … `GET /templates`，`/` 302 到 `/analysis`），静态资源挂在 `/static`；
+> 数据一律由 `static/views/*.js` 调 API 后用 `textContent` 写入，因此 CSP 可保持
+> `script-src 'self'`（无内联脚本、无 `unsafe-eval`）。定时任务视图只做状态说明：创建与调度属于 §12+。
+
 ---
 
 ## 8. 关键交互

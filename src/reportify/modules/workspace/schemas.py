@@ -25,6 +25,7 @@ class TemplateMeta(BaseModel):
     schema_version: int = 1
     path: str
     content_hash: str
+    sections: list[str] = Field(default_factory=list)
 
 
 class WorkspaceSnapshot(BaseModel):

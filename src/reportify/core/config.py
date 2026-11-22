@@ -39,10 +39,46 @@ class Settings(BaseSettings):
     key_version: int = 1
     auth_token: SecretStr | None = None
 
+    # Model access. Missing key is allowed: the app starts and runs fail with
+    # a structured `model_not_configured` error instead of crashing at boot.
+    deepseek_api_key: SecretStr | None = None
+    deepseek_base_url: str = "https://api.deepseek.com"
+    deepseek_model: str = "deepseek-flash"
+
+    # Run budgets. See docs/architecture/02-agent-runtime.md §9.1.
+    run_timeout_seconds: int = 900
+    run_request_limit: int = 40
+    run_tool_calls_limit: int = 25
+    run_total_tokens_limit: int = 300_000
+    run_tool_timeout_seconds: int = 120
+    max_concurrent_runs: int = 4
+    instructions_char_budget: int = 28_000
+    max_prompt_chars: int = 20_000
+
+    # MCP. ``ssrf_allow_loopback`` defaults to on outside prod so a local fake
+    # server can be used; production deployments must keep it off.
+    ssrf_allow_loopback: bool | None = None
+    mcp_connect_timeout_seconds: float = 30.0
+    mcp_read_timeout_seconds: float = 60.0
+    mcp_probe_timeout_seconds: float = 5.0
+
+    # Observability. Unset means tracing is a no-op (09 §10).
+    otel_exporter_otlp_endpoint: str | None = None
+
+    @property
+    def allow_loopback(self) -> bool:
+        if self.ssrf_allow_loopback is not None:
+            return self.ssrf_allow_loopback
+        return self.app_env in {"dev", "test"}
+
     @property
     def database_dsn(self) -> str:
         """Return the database URL as a plain string for SQLAlchemy/Alembic."""
         return str(self.database_url)
+
+    @property
+    def model_configured(self) -> bool:
+        return self.deepseek_api_key is not None
 
 
 @lru_cache

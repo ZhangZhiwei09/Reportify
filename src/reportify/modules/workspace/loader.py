@@ -52,8 +52,39 @@ class WorkspaceLoader:
         )
 
     def skills_index(self) -> list[SkillMeta]:
+        return self.load_skills()[0]
+
+    def load_skills(self) -> tuple[list[SkillMeta], list[str]]:
+        """Skills plus the per-skill load warnings."""
         warnings: list[str] = []
-        return self._load_skills(warnings)
+        return self._load_skills(warnings), warnings
+
+    def load_templates(self) -> tuple[list[TemplateMeta], list[str]]:
+        warnings: list[str] = []
+        return self._load_templates(warnings), warnings
+
+    def read_skill(self, name: str, skills: list[SkillMeta] | None = None) -> str:
+        """Return the full ``SKILL.md`` text for one skill.
+
+        Used by the ``load_skill`` tool for progressive disclosure: the index is
+        always in context, the body only on demand (02 §6).
+        """
+        metas = skills if skills is not None else self.skills_index()
+        meta = next((item for item in metas if item.name == name), None)
+        if meta is None:
+            raise WorkspaceValidationError(f"skill not found: {name}")
+        return self._read_text(self._root / meta.path)
+
+    def read_template(
+        self,
+        name: str,
+        templates: list[TemplateMeta] | None = None,
+    ) -> str:
+        metas = templates if templates is not None else self.templates_index()
+        meta = next((item for item in metas if item.name == name), None)
+        if meta is None:
+            raise WorkspaceValidationError(f"template not found: {name}")
+        return self._read_text(self._root / meta.path)
 
     def templates_index(self) -> list[TemplateMeta]:
         warnings: list[str] = []
@@ -190,6 +221,11 @@ class WorkspaceLoader:
             schema_version=schema_version,
             path=self._relative(path),
             content_hash=_sha256(text),
+            sections=[
+                str(section.get("title") or section.get("id") or "")
+                for section in sections
+                if isinstance(section, dict)
+            ],
         )
 
     def _relative(self, path: Path) -> str:

@@ -1,0 +1,37 @@
+{% extends "layout.html" %}
+{% block content %}
+<section class="grid two">
+  <div class="card">
+    <div class="card-head"><h2>MCP Servers</h2><button id="refresh" class="btn">刷新</button></div>
+    <ul id="server-list" class="list"></ul>
+  </div>
+  <div class="card">
+    <div class="card-head"><h2>新增 Server</h2></div>
+    <form id="server-form" class="form">
+      <label>名称<input name="name" required placeholder="GitHub"></label>
+      <label>Slug<input name="slug" required placeholder="github" pattern="[a-z0-9][a-z0-9-]*"></label>
+      <label>URL<input name="url" required placeholder="https://mcp.example.com/mcp"></label>
+      <label>认证
+        <select name="auth_type">
+          <option value="none">无</option>
+          <option value="bearer">Bearer Token</option>
+        </select>
+      </label>
+      <label>Token（可选）<input name="token" type="password"></label>
+      <button class="btn primary" type="submit">保存</button>
+    </form>
+    <p class="notice">新发现的工具默认按写入工具处理，且默认未授权。</p>
+  </div>
+</section>
+<section class="card">
+  <div class="card-head"><h2>工具与授权</h2><span id="tools-hint" class="meta">选择 Server 查看工具</span></div>
+  <table class="table">
+    <thead><tr><th>工具</th><th>风险</th><th>授权</th><th>风险确认</th><th></th></tr></thead>
+    <tbody id="tool-rows"></tbody>
+  </table>
+</section>
+<section class="card">
+  <div class="card-head"><h2>最近调用审计</h2><button id="load-audits" class="btn">加载</button></div>
+  <ul id="audit-list" class="list"></ul>
+</section>
+{% endblock %}

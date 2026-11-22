@@ -8,11 +8,20 @@ from fastapi import Depends, Header, HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
 from reportify.core.config import Settings
+from reportify.core.events import EventPublisher
 from reportify.modules.connectors.base import ConnectorRegistry
 from reportify.modules.connectors.data_source_service import DataSourceService
 from reportify.modules.connectors.metadata import MetadataService
 from reportify.modules.connectors.profiling import ProfilingService
+from reportify.modules.conversation.service import ConversationService
+from reportify.modules.mcp.hub import MCPHub
+from reportify.modules.mcp.runtime import MCPRuntime
+from reportify.modules.reports.service import ReportService
+from reportify.modules.reports.templates import ReportTemplateService
+from reportify.modules.runtime.runtime import AgentRuntime
 from reportify.modules.security.secrets import SecretService
+from reportify.modules.skills.service import SkillService
+from reportify.modules.tools.registry import ToolRegistry
 
 
 def get_app_settings(request: Request) -> Settings:
@@ -45,6 +54,42 @@ def get_metadata_service(request: Request) -> MetadataService:
 
 def get_profiling_service(request: Request) -> ProfilingService:
     return request.app.state.profiling_service
+
+
+def get_conversation_service(request: Request) -> ConversationService:
+    return request.app.state.conversation_service
+
+
+def get_runtime(request: Request) -> AgentRuntime:
+    return request.app.state.runtime
+
+
+def get_event_publisher(request: Request) -> EventPublisher:
+    return request.app.state.event_publisher
+
+
+def get_tool_registry(request: Request) -> ToolRegistry:
+    return request.app.state.tool_registry
+
+
+def get_report_service(request: Request) -> ReportService:
+    return request.app.state.report_service
+
+
+def get_mcp_hub(request: Request) -> MCPHub:
+    return request.app.state.mcp_hub
+
+
+def get_mcp_runtime(request: Request) -> MCPRuntime:
+    return request.app.state.mcp_runtime
+
+
+def get_skill_service(request: Request) -> SkillService:
+    return request.app.state.skill_service
+
+
+def get_template_service(request: Request) -> ReportTemplateService:
+    return request.app.state.template_service
 
 
 def require_auth(

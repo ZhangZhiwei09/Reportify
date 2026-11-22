@@ -282,6 +282,9 @@
 
 **规则**：MCP 工具默认 `risk_level='write'`（保守），由用户显式降为 `read`；不能根据名称/描述自动认定只读。
 
+> 实现注记（2026-11-22，M3）：`source_id` 的 `FK → mcp_server.id`（`ON DELETE SET NULL`）已由 `0004` 迁移补齐；
+> M2 曾以普通 `UUID` 列过渡。
+
 ### 6.12 `tool_grant`
 
 | 字段 | 类型 | 约束 | 说明 |

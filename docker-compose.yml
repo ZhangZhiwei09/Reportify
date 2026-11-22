@@ -1,0 +1,51 @@
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: reportify
+      POSTGRES_PASSWORD: reportify
+      POSTGRES_DB: reportify
+    volumes:
+      - reportify_pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U reportify -d reportify"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api:
+    build: .
+    environment:
+      REPORTIFY_APP_ENV: prod
+      REPORTIFY_HOST: 0.0.0.0
+      REPORTIFY_DATABASE_URL: postgresql+asyncpg://reportify:reportify@postgres:5432/reportify
+      REPORTIFY_REDIS_URL: redis://redis:6379/0
+      REPORTIFY_WORKSPACE_DIR: /app/workspace
+      REPORTIFY_REPORTS_DIR: /app/reports
+      REPORTIFY_SECRET_KEY: ${REPORTIFY_SECRET_KEY:-change-me-before-exposing}
+      REPORTIFY_AUTH_TOKEN: ${REPORTIFY_AUTH_TOKEN:-}
+      REPORTIFY_DEEPSEEK_API_KEY: ${REPORTIFY_DEEPSEEK_API_KEY:-}
+      REPORTIFY_DEEPSEEK_MODEL: ${REPORTIFY_DEEPSEEK_MODEL:-deepseek-flash}
+      REPORTIFY_SSRF_ALLOW_LOOPBACK: "false"
+    ports:
+      - "127.0.0.1:8000:8000"
+    volumes:
+      - ./workspace:/app/workspace
+      - ./reports:/app/reports
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+volumes:
+  reportify_pg:

@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="reportify-renderer" content="{{ renderer_id }}">
+<meta name="reportify-report-id" content="{{ report_id }}">
+<title>{{ title }}</title>
+<style>
+  :root { color-scheme: light; }
+  body { font-family: -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif;
+         margin: 0; background: #f6f7f9; color: #1f2328; line-height: 1.6; }
+  .banner { background: #fff4e5; border-bottom: 1px solid #f0c78a; padding: 10px 24px;
+            font-size: 13px; color: #7a4b00; }
+  main { max-width: 1080px; margin: 0 auto; padding: 24px; }
+  h1 { font-size: 26px; margin: 16px 0 8px; }
+  h2 { font-size: 19px; margin: 28px 0 12px; padding-bottom: 6px;
+       border-bottom: 1px solid #e3e6ea; }
+  .summary { color: #495057; }
+  .card { background: #fff; border: 1px solid #e3e6ea; border-radius: 10px;
+          padding: 16px; margin: 12px 0; }
+  .kpi-value { font-size: 30px; font-weight: 600; }
+  .kpi-label { color: #57606a; font-size: 14px; }
+  .meta { color: #6b7280; font-size: 12px; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid #eef0f3; }
+  th { color: #57606a; font-weight: 600; }
+  .lineage { font-size: 12px; color: #495057; }
+  .lineage code { background: #f1f3f5; padding: 1px 5px; border-radius: 4px;
+                  word-break: break-all; }
+  footer { margin-top: 32px; color: #6b7280; font-size: 12px; }
+</style>
+</head>
+<body>
+<div class="banner">
+  占位渲染（非最终）— 本文件由 <code>{{ renderer_id }}</code> 生成，仅用于验证 Report Schema 与 lineage 链路；
+  正式图表渲染由后续 Report Engine 实现。
+</div>
+<main>
+  <h1>{{ title }}</h1>
+  {% if summary %}<p class="summary">{{ summary }}</p>{% endif %}
+  <p class="meta">
+    generated_at {{ generated_at.isoformat() }}
+    {% if template_name %} · template <code>{{ template_name }}</code>{% endif %}
+  </p>
+
+  {% for section in sections %}
+  <section id="{{ section.id }}">
+    <h2>{{ section.title }}</h2>
+    {% for block in section.blocks %}
+      {% if block.type == "kpi" %}
+      <div class="card">
+        <div class="kpi-label">{{ block.label }}</div>
+        <div class="kpi-value">{{ block.value }}{% if block.unit %} <small>{{ block.unit }}</small>{% endif %}</div>
+        <div class="meta">口径：{{ block.definition }}</div>
+      </div>
+      {% elif block.type == "table" %}
+      <div class="card">
+        <h3>{{ block.title }}</h3>
+        <table>
+          <thead><tr>{% for column in block.columns %}<th>{{ column }}</th>{% endfor %}</tr></thead>
+          <tbody>
+          {% for row in block.rows %}
+            <tr>{% for cell in row %}<td>{{ "" if cell is none else cell }}</td>{% endfor %}</tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% elif block.type == "chart" %}
+      <div class="card">
+        <h3>{{ block.title }}</h3>
+        <p class="meta">{{ block.chart_type }} · x={{ block.x_label }}{% if block.y_label %} · y={{ block.y_label }}{% endif %}</p>
+        <table>
+          <thead><tr><th>{{ block.x_label }}</th>{% for series in block.series %}<th>{{ series.name }}</th>{% endfor %}</tr></thead>
+          <tbody>
+          {% for index in range(block.series[0].points | length) %}
+            <tr>
+              <td>{{ block.series[0].points[index].x }}</td>
+              {% for series in block.series %}
+              <td>{{ "" if series.points[index].y is none else series.points[index].y }}</td>
+              {% endfor %}
+            </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+        <p class="meta">口径：{{ block.definition }}</p>
+        <p class="meta">图表占位：数据已内联，ECharts 渲染由 §12+ 实现。</p>
+      </div>
+      {% elif block.type == "text" %}
+      <div class="card"><p>{{ block.text }}</p></div>
+      {% endif %}
+    {% endfor %}
+  </section>
+  {% endfor %}
+
+  <section id="lineage">
+    <h2>数据来源与口径</h2>
+    {% for snapshot in lineage.snapshots %}
+    <div class="card lineage">
+      <div><strong>snapshot</strong> <code>{{ snapshot.id }}</code> · purpose {{ snapshot.purpose }} · rows {{ snapshot.row_count }}</div>
+      <div><strong>sql</strong> <code>{{ snapshot.sql }}</code></div>
+      <div><strong>params</strong> <code>{{ snapshot.params }}</code></div>
+      <div><strong>executed_at</strong> {{ snapshot.executed_at }}</div>
+    </div>
+    {% else %}
+    <p class="meta">无查询快照引用。</p>
+    {% endfor %}
+  </section>
+
+  <footer>Reportify · renderer {{ renderer_id }} · report {{ report_id }}</footer>
+</main>
+</body>
+</html>

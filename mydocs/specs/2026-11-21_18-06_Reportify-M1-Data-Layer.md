@@ -11,7 +11,7 @@
 | 字段 | 值 |
 | --- | --- |
 | Phase | `Review` |
-| Status | `LOCKED` |
+| Status | `ACCEPTED`（2026-11-21，用户指令「继续完成剩下的内容」视为验收通过） |
 | Approval | `Plan Approved` + `全部`（2026-11-21） |
 | 任务单元 | PostgreSQL 只读接入、凭证加密、元数据同步、安全查询构造、Profiling 契约、数据源 API |
 | 不包含 | Analysis Engine 算法、MCP、Agent Runtime、管理台页面、报告渲染 |
@@ -357,6 +357,6 @@ class DataSourceService:
 
 ## 12. Gate
 
-- 当前 `Review / LOCKED`，等待用户验收。
-- 验收通过后关闭 M1；下一阶段为 M2 Agent Runtime / Tool 工具链。
-- 未新建并批准 M2 Spec 前，不实现 Agent、MCP 或会话功能。
+- `Review / ACCEPTED`（2026-11-21）：用户指令「继续完成剩下的内容」视为验收通过，M1 关闭。
+- 下一阶段 M2 Agent Runtime / Tool 工具链，见 `2026-11-21_19-55_Reportify-M2-Agent-Runtime.md`。
+- M1 遗留项（`TABLESAMPLE`、`time_range` 写值、`run_id` FK）由后续里程碑承接；其中 `run_id` 外键在 M2 `0003` 迁移补齐。

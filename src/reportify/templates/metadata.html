@@ -1,0 +1,14 @@
+{% extends "layout.html" %}
+{% block content %}
+<section class="card">
+  <div class="card-head">
+    <h2>字段元数据</h2>
+    <label class="inline">数据源 <select id="source-select"></select></label>
+    <label class="inline">表 <select id="table-select"></select></label>
+  </div>
+  <table class="table">
+    <thead><tr><th>字段</th><th>类型</th><th>展示名</th><th>单位</th><th>标签</th><th></th></tr></thead>
+    <tbody id="column-rows"></tbody>
+  </table>
+</section>
+{% endblock %}
