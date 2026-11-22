@@ -189,7 +189,7 @@ class ToolRegistry:
                     task_id=task_id,
                     conversation_id=conversation_id,
                 )
-                if decision.allowed:
+                if _exposable(decision):
                     offered.append(spec)
             offered.extend(
                 await self._mcp_specs(
@@ -272,7 +272,7 @@ class ToolRegistry:
                 conversation_id=conversation_id,
                 definition=definition,
             )
-            if decision.allowed:
+            if _exposable(decision):
                 specs.append(spec)
         return specs
 
@@ -351,6 +351,15 @@ def _mcp_tool_spec(definition: ToolDefinition, server: MCPServer) -> ToolSpec:
         source_slug=server.slug,
         model_name_raw=raw_name,
     )
+
+
+def _exposable(decision: AuthorizationDecision) -> bool:
+    """A tool is visible to the model when allowed *or* only gated by approval.
+
+    ``needs_approval`` must not hide the tool: it has to reach the toolset so the
+    approval gate can pause the call instead of the model seeing an unknown tool.
+    """
+    return decision.allowed or decision.reason == "needs_approval"
 
 
 def select_grant(

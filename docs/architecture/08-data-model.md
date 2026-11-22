@@ -241,6 +241,7 @@
 | `model_settings` | JSONB | NOT NULL DEFAULT `{}` | thinking、max_tokens 等 |
 | `limits` | JSONB | NOT NULL DEFAULT `{}` | request/tool/token/cost 限制 |
 | `usage` | JSONB | NOT NULL DEFAULT `{}` | 实际用量（请求、工具、token、成本） |
+| `pending_approvals` | JSONB | NOT NULL DEFAULT `[]` | 待审批工具调用；每项含 `approval_id`、`tool_call_id`、`tool_name`、`args_redacted`、`risk`、`decision` |
 | `history_blob` | JSONB | NULL | PydanticAI `ModelMessagesTypeAdapter` 结果 |
 | `error` | JSONB | NULL | |
 | `cancel_requested_at` | timestamptz | NULL | |

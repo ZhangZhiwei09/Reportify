@@ -200,3 +200,62 @@ async def stale_active_runs(
             )
         )
     ).scalars().all()
+
+
+async def mark_waiting_approval(
+    session: AsyncSession,
+    run_id: UUID,
+    *,
+    approvals: list[dict],
+    history_blob: list[Any] | None,
+) -> None:
+    """Park a run until the user decides on deferred tool calls (05 §6.1)."""
+    run = await session.get(TaskRun, run_id)
+    if run is None:
+        return
+    run.status = "waiting_approval"
+    run.pending_approvals = approvals
+    if history_blob is not None:
+        run.history_blob = history_blob
+    await session.commit()
+
+
+async def record_approval_decision(
+    session: AsyncSession,
+    run_id: UUID,
+    approval_id: str,
+    *,
+    approved: bool,
+) -> tuple[list[dict], bool] | None:
+    """Record one decision; returns (approvals, all_decided) or None if unknown."""
+    run = await session.get(TaskRun, run_id)
+    if run is None:
+        return None
+    approvals = [dict(item) for item in (run.pending_approvals or [])]
+    target = next(
+        (item for item in approvals if item.get("approval_id") == approval_id),
+        None,
+    )
+    if target is None:
+        return None
+    target["decision"] = "approved" if approved else "denied"
+    run.pending_approvals = approvals
+    await session.commit()
+    all_decided = all(item.get("decision") != "pending" for item in approvals)
+    return approvals, all_decided
+
+
+async def clear_pending_approvals(session: AsyncSession, run_id: UUID) -> None:
+    run = await session.get(TaskRun, run_id)
+    if run is None:
+        return
+    run.pending_approvals = []
+    await session.commit()
+
+
+async def set_usage(session: AsyncSession, run_id: UUID, usage: dict[str, Any]) -> None:
+    run = await session.get(TaskRun, run_id)
+    if run is None:
+        return
+    run.usage = usage
+    await session.commit()

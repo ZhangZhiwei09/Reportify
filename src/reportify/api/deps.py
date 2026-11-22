@@ -22,6 +22,7 @@ from reportify.modules.runtime.runtime import AgentRuntime
 from reportify.modules.security.secrets import SecretService
 from reportify.modules.skills.service import SkillService
 from reportify.modules.tools.registry import ToolRegistry
+from reportify.modules.workspace.service import WorkspaceService
 
 
 def get_app_settings(request: Request) -> Settings:
@@ -90,6 +91,10 @@ def get_skill_service(request: Request) -> SkillService:
 
 def get_template_service(request: Request) -> ReportTemplateService:
     return request.app.state.template_service
+
+
+def get_workspace_service(request: Request) -> WorkspaceService:
+    return request.app.state.workspace_service
 
 
 def require_auth(

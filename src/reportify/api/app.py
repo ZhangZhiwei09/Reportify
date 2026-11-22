@@ -25,6 +25,7 @@ from reportify.api.routes.runs import router as runs_router
 from reportify.api.routes.skills import router as skills_router
 from reportify.api.routes.system import router as system_router
 from reportify.api.routes.tasks import router as tasks_router
+from reportify.api.routes.workspace import router as workspace_router
 from reportify.core.config import Settings, get_settings
 from reportify.core.db import create_engine, create_session_factory
 from reportify.core.errors import ApiError
@@ -48,6 +49,7 @@ from reportify.modules.security.secrets import SecretService
 from reportify.modules.skills.service import SkillService
 from reportify.modules.tools.registry import ToolRegistry
 from reportify.modules.workspace.loader import WorkspaceLoader
+from reportify.modules.workspace.service import WorkspaceService
 
 logger = logging.getLogger(__name__)
 
@@ -132,6 +134,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     app.state.mcp_runtime = mcp_runtime
     app.state.skill_service = SkillService(workspace_loader)
     app.state.template_service = ReportTemplateService(workspace_loader)
+    app.state.workspace_service = WorkspaceService(workspace_loader, session_factory)
 
     try:
         await tool_registry.sync_builtins()
@@ -186,5 +189,6 @@ def create_app(settings: Settings | None = None, *, model: Model | None = None) 
     app.include_router(mcp_router)
     app.include_router(skills_router)
     app.include_router(report_templates_router)
+    app.include_router(workspace_router)
     app.include_router(pages_router)
     return app

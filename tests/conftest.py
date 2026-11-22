@@ -1,10 +1,22 @@
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 import pytest
 
 from reportify.core.config import Settings, get_settings
+
+# Loopback traffic must never go through a proxy. On Windows with a system proxy
+# (e.g. a local Clash/VPN client) httpx picks it up from the registry, and the
+# proxy answers 502 for 127.0.0.1 — which looks like a broken MCP server.
+for _variable in ("NO_PROXY", "no_proxy"):
+    _existing = os.environ.get(_variable, "")
+    _entries = [entry.strip() for entry in _existing.split(",") if entry.strip()]
+    for _host in ("127.0.0.1", "localhost", "::1"):
+        if _host not in _entries:
+            _entries.append(_host)
+    os.environ[_variable] = ",".join(_entries)
 
 
 @pytest.fixture(autouse=True)

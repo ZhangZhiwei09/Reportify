@@ -137,6 +137,12 @@ class TaskRun(Base, TimestampMixin):
     )
     limits: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
     usage: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
+    pending_approvals: Mapped[list[dict[str, Any]]] = mapped_column(
+        JSONB,
+        nullable=False,
+        default=list,
+        server_default=text("'[]'::jsonb"),
+    )
     history_blob: Mapped[list[Any] | None] = mapped_column(JSONB, nullable=True)
     error: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
     cancel_requested_at: Mapped[datetime | None] = mapped_column(

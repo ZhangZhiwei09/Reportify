@@ -25,6 +25,7 @@ def free_port() -> int:
 class FakeMCPServer:
     def __init__(self) -> None:
         self.server = MCPServer("reportify-fake")
+        self.calls: list[str] = []
         self._register_defaults()
         self.app = self.server.streamable_http_app()
         self.port = free_port()
@@ -57,9 +58,12 @@ class FakeMCPServer:
     # ---------------------------------------------------------------- tools
 
     def _register_defaults(self) -> None:
+        calls = self.calls
+
         @self.server.tool()
         def echo(text: str) -> str:
             """Echo the text back."""
+            calls.append(f"echo:{text}")
             return f"echo:{text}"
 
         @self.server.tool()

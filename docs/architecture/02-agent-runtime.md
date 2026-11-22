@@ -324,7 +324,7 @@ mcp_toolsets = [
 | `FunctionToolResultEvent` | `.part` 才是工具返回值（`ToolReturnPart.content`）；`.content` 是追加给模型的下一条 user 内容（通常为 `None`） | 审计与事件从 `.part` 取值 |
 | `model_request` 时机 | SDK 没有「响应开始」事件；`PartStartEvent(index=0)` 是每次模型响应起点 | 以它为代理发 `model_request`，真实 usage 由收尾的 `usage` 事件给出 |
 | `report_generated` | 由 `generate_report` 工具在生成成功时直接发布（早于 `tool_result`） | 报告引用先于工具结果可见，SSE 顺序与工具执行一致 |
-| `approval_required` | M2 未实现审批；内置工具无 `destructive` 级 | M3 随 MCP 写工具落地 |
+| `approval_required` | M5 已实现：`destructive` 或 `requires_approval` 的工具经 `.approval_required()` 门禁后，run 输出 `DeferredToolRequests` 并停在 `waiting_approval`，待批项落 `task_run.pending_approvals`；全部决策后同 run 用 `DeferredToolResults` 续跑 | 授权层必须把 `needs_approval` 当作「可见但需审批」；审批前工具不会执行 |
 | 循环检测 | 相同 `(tool_name, args)` 第 3 次调用时中止 run（`error.code=loop_detected`） | 第 2 次仅计数，不发 `ModelRetry`（事件流无法回注提示） |
 | 终态事件 | 成功/取消发 `run_completed`（带 `status`），失败/超时发 `error` | SSE 以二者为关闭条件 |
 

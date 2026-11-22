@@ -17,22 +17,23 @@ from uuid import UUID
 
 from pydantic_ai import (
     Agent,
-    AgentRunResult,
     AgentRunResultEvent,
     CancellationToken,
+    DeferredToolRequests,
+    DeferredToolResults,
     FunctionToolCallEvent,
     FunctionToolResultEvent,
     PartStartEvent,
     UnexpectedModelBehavior,
     UsageLimitExceeded,
 )
-from pydantic_ai.messages import RetryPromptPart, ToolReturnPart
+from pydantic_ai.messages import ModelMessagesTypeAdapter, RetryPromptPart, ToolReturnPart
 from pydantic_ai.toolsets import FunctionToolset
 from pydantic_ai.usage import UsageLimits
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from reportify.core.config import Settings
-from reportify.core.errors import ConversationBusy, ModelNotConfigured, NotFound
+from reportify.core.errors import Conflict, ConversationBusy, ModelNotConfigured, NotFound
 from reportify.core.events import EventPublisher
 from reportify.core.telemetry import run_span
 from reportify.db.models import Message
@@ -45,7 +46,14 @@ from reportify.modules.connectors.profiling import ProfilingService
 from reportify.modules.mcp.runtime import MCPRuntime, MCPToolsetBundle
 from reportify.modules.reports.service import ReportService
 from reportify.modules.runtime.context import ContextAssembler
-from reportify.modules.runtime.schemas import Budget, RunOutcome, RunRequest, RuntimeDeps
+from reportify.modules.runtime.schemas import (
+    Budget,
+    PendingApproval,
+    ResumeState,
+    RunOutcome,
+    RunRequest,
+    RuntimeDeps,
+)
 from reportify.modules.tools.builtin import BUILTIN_FUNCTIONS
 from reportify.modules.tools.registry import ToolRegistry
 from reportify.modules.tools.schemas import ToolResult
@@ -248,18 +256,30 @@ class AgentRuntime:
             tool_timeout_seconds=self._settings.run_tool_timeout_seconds,
         )
 
-    async def _execute(self, run_id: UUID, request: RunRequest) -> None:
+    async def _execute(
+        self,
+        run_id: UUID,
+        request: RunRequest | None,
+        *,
+        resume: ResumeState | None = None,
+    ) -> None:
         with run_span(run_id, self._settings.deepseek_model) as span:
-            outcome = await self._execute_outcome(run_id, request)
+            outcome = await self._execute_outcome(run_id, request, resume=resume)
         span.set_status(outcome.status)
         if outcome.error:
             span.record_error(str(outcome.error.get("code", "error")))
         self._outcomes[run_id] = outcome
         self._tasks.pop(run_id, None)
 
-    async def _execute_outcome(self, run_id: UUID, request: RunRequest) -> RunOutcome:
+    async def _execute_outcome(
+        self,
+        run_id: UUID,
+        request: RunRequest | None,
+        *,
+        resume: ResumeState | None = None,
+    ) -> RunOutcome:
         try:
-            return await self._run(run_id, request)
+            return await self._run(run_id, request, resume=resume)
         except asyncio.CancelledError:
             return await self._finish_cancelled(run_id)
         except RunLoopDetected as exc:
@@ -299,31 +319,47 @@ class AgentRuntime:
         finally:
             self._tokens.pop(run_id, None)
 
-    async def _run(self, run_id: UUID, request: RunRequest) -> RunOutcome:
+    async def _run(
+        self,
+        run_id: UUID,
+        request: RunRequest | None,
+        *,
+        resume: ResumeState | None = None,
+    ) -> RunOutcome:
         agent = self._agent
         if agent is None:
             raise ModelNotConfigured()
 
         async with self._session_factory() as session:
-            task = await tasks_repo.get_task(session, request.task_id)
+            run = await tasks_repo.get_run(session, run_id)
+            if run is None:
+                raise NotFound(f"run not found: {run_id}")
+            task = await tasks_repo.get_task(session, run.task_id)
             if task is None:
-                raise NotFound(f"task not found: {request.task_id}")
-            message = await session.get(Message, request.user_message_id)
-            user_prompt = message.content if message is not None else task.goal
+                raise NotFound(f"task not found: {run.task_id}")
+            user_prompt: str | None = None
+            if request is not None:
+                message = await session.get(Message, request.user_message_id)
+                user_prompt = message.content if message is not None else task.goal
 
         await self._mark_running(run_id)
-        budget = self._budget(request.trigger)
-        await self._events.publish(
-            run_id,
-            "run_started",
-            {
-                "model": self._settings.deepseek_model,
-                "task_id": str(task.id),
-                "conversation_id": str(task.conversation_id),
-                "trigger": request.trigger,
-                "limits": budget.as_dict(),
-            },
-        )
+        budget = self._budget(run.trigger)
+        if resume is None:
+            await self._events.publish(
+                run_id,
+                "run_started",
+                {
+                    "model": self._settings.deepseek_model,
+                    "task_id": str(task.id),
+                    "conversation_id": str(task.conversation_id),
+                    "trigger": run.trigger,
+                    "limits": budget.as_dict(),
+                },
+            )
+        else:
+            await self._set_task_status(task.id, status="running", current_run_id=run_id)
+            async with self._session_factory() as session:
+                await tasks_repo.clear_pending_approvals(session, run_id)
 
         workspace = self._workspace_loader.load()
         bundle = await self._assembler.build(task, workspace)
@@ -336,13 +372,28 @@ class AgentRuntime:
             for spec in specs
             if spec.model_name in BUILTIN_FUNCTIONS
         ]
-        toolset = FunctionToolset(tools=tools)
+        approval_names = {
+            spec.model_name
+            for spec in specs
+            if spec.requires_approval or spec.risk_level == "destructive"
+        }
+        risk_by_name = {spec.model_name: spec.risk_level for spec in specs}
+        toolset = self._gate_approvals(FunctionToolset(tools=tools), approval_names)
 
         mcp_bundle = (
             await self._mcp.toolsets(specs)
             if self._mcp is not None
             else MCPToolsetBundle()
         )
+        if approval_names:
+            mcp_bundle.toolsets = [
+                mcp_toolset.approval_required(
+                    lambda ctx, tool_definition, args: (  # noqa: ANN001
+                        getattr(tool_definition, "name", "") in approval_names
+                    )
+                )
+                for mcp_toolset in mcp_bundle.toolsets
+            ]
         warnings = list(bundle.warnings)
         if mcp_bundle.unavailable:
             warnings.append(
@@ -357,29 +408,33 @@ class AgentRuntime:
                 "mcp servers disabled or in error: " + ", ".join(mcp_bundle.skipped)
             )
 
-        await self._events.publish(
-            run_id,
-            "plan",
-            {
-                "goal": task.goal,
-                "skill_names": list(task.skill_names),
-                "template_name": task.template_name,
-                "tools": [spec.model_name for spec in specs],
-                "warnings": warnings,
-                "mcp_servers": [spec.source_slug for spec in specs if spec.kind == "mcp"],
-                "mcp_unavailable": mcp_bundle.unavailable,
-                "budget": budget.as_dict(),
-            },
-        )
-        await self._append_message(
-            task.conversation_id,
-            role="system",
-            message_type="analysis_plan",
-            content="已生成执行计划。",
-            payload={"goal": task.goal, "tools": [spec.model_name for spec in specs]},
-            task_id=task.id,
-            run_id=run_id,
-        )
+        if resume is None:
+            await self._events.publish(
+                run_id,
+                "plan",
+                {
+                    "goal": task.goal,
+                    "skill_names": list(task.skill_names),
+                    "template_name": task.template_name,
+                    "tools": [spec.model_name for spec in specs],
+                    "warnings": warnings,
+                    "mcp_servers": [
+                        spec.source_slug for spec in specs if spec.kind == "mcp"
+                    ],
+                    "mcp_unavailable": mcp_bundle.unavailable,
+                    "approval_required_tools": sorted(approval_names),
+                    "budget": budget.as_dict(),
+                },
+            )
+            await self._append_message(
+                task.conversation_id,
+                role="system",
+                message_type="analysis_plan",
+                content="已生成执行计划。",
+                payload={"goal": task.goal, "tools": [spec.model_name for spec in specs]},
+                task_id=task.id,
+                run_id=run_id,
+            )
         await self._set_task_status(task.id, status="running", current_run_id=run_id)
 
         deps = RuntimeDeps(
@@ -405,18 +460,29 @@ class AgentRuntime:
         self._tokens[run_id] = token
         pump = _EventPump(self, run_id)
 
-        result: AgentRunResult[str] | None = None
+        result = None
+        stream_kwargs: dict[str, Any] = {
+            "deps": deps,
+            "instructions": bundle.instructions,
+            "toolsets": [toolset, *mcp_bundle.toolsets],
+            "usage_limits": limits,
+            "cancellation_token": token,
+            "timeout": float(budget.timeout_seconds),
+        }
+        if resume is None:
+            stream_kwargs["user_prompt"] = user_prompt
+            stream_kwargs["message_history"] = bundle.message_history
+        else:
+            stream_kwargs["message_history"] = resume.message_history
+            stream_kwargs["deferred_tool_results"] = DeferredToolResults(
+                approvals={
+                    item["tool_call_id"]: item.get("decision") == "approved"
+                    for item in resume.approvals
+                }
+            )
+
         async with self._semaphore:
-            async with agent.run_stream_events(
-                user_prompt,
-                deps=deps,
-                message_history=bundle.message_history,
-                instructions=bundle.instructions,
-                toolsets=[toolset, *mcp_bundle.toolsets],
-                usage_limits=limits,
-                cancellation_token=token,
-                timeout=float(budget.timeout_seconds),
-            ) as events:
+            async with agent.run_stream_events(**stream_kwargs) as events:
                 async for event in events:
                     if isinstance(event, AgentRunResultEvent):
                         result = event.result
@@ -427,6 +493,18 @@ class AgentRuntime:
 
         usage = _usage_dict(result.usage)
         await self._events.publish(run_id, "usage", usage)
+
+        if isinstance(result.output, DeferredToolRequests):
+            return await self._defer_for_approval(
+                run_id,
+                task,
+                result,
+                specs=specs,
+                risk_by_name=risk_by_name,
+                usage=usage,
+                history_blob=json.loads(result.all_messages_json()),
+            )
+
         output = result.output if isinstance(result.output, str) else str(result.output)
         await self._append_message(
             task.conversation_id,
@@ -479,6 +557,124 @@ class AgentRuntime:
             usage=usage,
             report_ref_id=report_id,
         )
+
+    # -------------------------------------------------------------- approvals
+
+    @staticmethod
+    def _gate_approvals(toolset: Any, approval_names: set[str]) -> Any:
+        """Wrap a toolset so matching calls pause for a human decision."""
+        if not approval_names:
+            return toolset
+        return toolset.approval_required(
+            lambda ctx, tool_definition, args: (  # noqa: ANN001 - SDK signature
+                getattr(tool_definition, "name", "") in approval_names
+            )
+        )
+
+    async def _defer_for_approval(
+        self,
+        run_id: UUID,
+        task: Any,
+        result: Any,
+        *,
+        specs: list[Any],
+        risk_by_name: dict[str, str],
+        usage: dict[str, Any],
+        history_blob: list[Any],
+    ) -> RunOutcome:
+        requests = result.output
+        approvals = [
+            PendingApproval(
+                approval_id=part.tool_call_id,
+                tool_call_id=part.tool_call_id,
+                tool_name=part.tool_name,
+                args_redacted=_redact(part.args if isinstance(part.args, dict) else {}),
+                risk=risk_by_name.get(part.tool_name, "write"),
+            ).model_dump(mode="json")
+            for part in requests.approvals
+        ]
+        async with self._session_factory() as session:
+            await tasks_repo.mark_waiting_approval(
+                session,
+                run_id,
+                approvals=approvals,
+                history_blob=history_blob,
+            )
+            await tasks_repo.set_usage(session, run_id, usage)
+        await self._set_task_status(
+            task.id,
+            status="waiting_approval",
+            current_run_id=run_id,
+        )
+        for item in approvals:
+            await self._events.publish(
+                run_id,
+                "approval_required",
+                {
+                    "approval_id": item["approval_id"],
+                    "tool_call_id": item["tool_call_id"],
+                    "tool_name": item["tool_name"],
+                    "risk": item["risk"],
+                    "args_redacted": item["args_redacted"],
+                },
+            )
+        await self._append_message(
+            task.conversation_id,
+            role="system",
+            message_type="system_event",
+            content="等待审批：" + ", ".join(item["tool_name"] for item in approvals),
+            payload={"approvals": approvals, "run_id": str(run_id)},
+            task_id=task.id,
+            run_id=run_id,
+        )
+        return RunOutcome(run_id=run_id, status="waiting_approval", usage=usage)
+
+    async def get_pending_approvals(self, run_id: UUID) -> list[dict[str, Any]]:
+        async with self._session_factory() as session:
+            run = await tasks_repo.get_run(session, run_id)
+        if run is None:
+            raise NotFound(f"run not found: {run_id}")
+        return list(run.pending_approvals or [])
+
+    async def decide(self, run_id: UUID, approval_id: str, *, approved: bool) -> dict[str, Any]:
+        """Record one decision and resume the run once every call is decided."""
+        async with self._session_factory() as session:
+            run = await tasks_repo.get_run(session, run_id)
+            if run is None:
+                raise NotFound(f"run not found: {run_id}")
+            if run.status != "waiting_approval":
+                raise Conflict(f"run is not waiting for approval: {run.status}")
+            stored = list(run.history_blob or [])
+            try:
+                history = ModelMessagesTypeAdapter.validate_python(stored)
+            except Exception as exc:  # noqa: BLE001 - corrupt history is a conflict
+                raise Conflict(
+                    "stored message history is unreadable; start a new run"
+                ) from exc
+            recorded = await tasks_repo.record_approval_decision(
+                session,
+                run_id,
+                approval_id,
+                approved=approved,
+            )
+        if recorded is None:
+            raise NotFound(f"approval not found: {approval_id}")
+        approvals, all_decided = recorded
+
+        if not all_decided:
+            return {
+                "run_id": str(run_id),
+                "status": "waiting_approval",
+                "approvals": approvals,
+            }
+
+        resume = ResumeState(message_history=history, approvals=approvals)
+        self._outcomes.pop(run_id, None)
+        self._tasks[run_id] = asyncio.create_task(
+            self._execute(run_id, None, resume=resume),
+            name=f"run-{run_id}-resume",
+        )
+        return {"run_id": str(run_id), "status": "resuming", "approvals": approvals}
 
     # -------------------------------------------------------------- terminal
 
@@ -644,6 +840,8 @@ class _EventPump:
                 # The SDK turns an unavailable tool into a model-visible result;
                 # nothing executed, so it is a denial, not a success.
                 status, error_code = "denied", "unknown_tool"
+            elif "tool call was denied" in text.lower():
+                status, error_code = "rejected", "approval_rejected"
             elif "timed out" in text.lower():
                 status, error_code = "timeout", "timeout"
             else:

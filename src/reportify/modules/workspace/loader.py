@@ -63,6 +63,37 @@ class WorkspaceLoader:
         warnings: list[str] = []
         return self._load_templates(warnings), warnings
 
+    def walk_files(self, *, limit: int = 500) -> list[dict[str, Any]]:
+        """List workspace files with size and content hash (root-bounded)."""
+        if not self._root.is_dir():
+            return []
+        files: list[dict[str, Any]] = []
+        for path in sorted(self._root.rglob("*")):
+            if len(files) >= limit:
+                break
+            if path.is_symlink() or not path.is_file():
+                continue
+            relative = path.relative_to(self._root)
+            if any(part.startswith(".") or part == "__pycache__" for part in relative.parts):
+                continue
+            try:
+                data = path.read_bytes()
+            except OSError:  # pragma: no cover - unreadable file
+                continue
+            files.append(
+                {
+                    "path": relative.as_posix(),
+                    "size": len(data),
+                    "hash": hashlib.sha256(data).hexdigest(),
+                }
+            )
+        return files
+
+    def read_file(self, relative: str) -> str:
+        """Read one workspace file by relative path (path traversal rejected)."""
+        candidate = self._root / relative
+        return self._read_text(candidate)
+
     def read_skill(self, name: str, skills: list[SkillMeta] | None = None) -> str:
         """Return the full ``SKILL.md`` text for one skill.
 

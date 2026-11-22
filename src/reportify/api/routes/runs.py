@@ -15,6 +15,7 @@ from reportify.core.events import EventPublisher
 from reportify.db.repositories import tasks as tasks_repo
 from reportify.modules.conversation.schemas import RunRead
 from reportify.modules.runtime.runtime import AgentRuntime
+from reportify.modules.runtime.schemas import ApprovalDecision
 
 router = APIRouter(
     prefix="/api/v1/runs",
@@ -60,3 +61,26 @@ async def cancel_run(
 ) -> dict[str, str]:
     run_status = await runtime.cancel(run_id)
     return {"run_id": str(run_id), "status": run_status}
+
+
+@router.get("/{run_id}/approvals")
+async def list_approvals(
+    run_id: UUID,
+    runtime: Annotated[AgentRuntime, Depends(get_runtime)],
+) -> dict[str, object]:
+    approvals = await runtime.get_pending_approvals(run_id)
+    return {"run_id": str(run_id), "approvals": approvals}
+
+
+@router.post("/{run_id}/approvals/{approval_id}")
+async def decide_approval(
+    run_id: UUID,
+    approval_id: str,
+    payload: ApprovalDecision,
+    runtime: Annotated[AgentRuntime, Depends(get_runtime)],
+) -> dict[str, object]:
+    return await runtime.decide(
+        run_id,
+        approval_id,
+        approved=payload.decision == "approve",
+    )

@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from datetime import UTC, datetime
 from typing import Any, Literal
 from uuid import UUID
 
+from pydantic import BaseModel, Field
 from pydantic_ai import ToolFailed
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
@@ -101,3 +103,30 @@ class RunOutcome:
     usage: dict[str, Any] = field(default_factory=dict)
     error: dict[str, Any] | None = None
     report_ref_id: UUID | None = None
+
+
+class PendingApproval(BaseModel):
+    """One deferred tool call awaiting a human decision (05 §6.1)."""
+
+    approval_id: str
+    tool_call_id: str
+    tool_name: str
+    args_redacted: dict[str, Any] = Field(default_factory=dict)
+    risk: str = "write"
+    decision: Literal["pending", "approved", "denied"] = "pending"
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+
+@dataclass
+class ResumeState:
+    """Everything needed to continue a run that was parked for approval."""
+
+    message_history: list[Any]
+    approvals: list[dict[str, Any]]
+
+
+class ApprovalDecision(BaseModel):
+    """User decision for one deferred tool call (07 §5.1)."""
+
+    decision: Literal["approve", "deny"]
+    note: str | None = None

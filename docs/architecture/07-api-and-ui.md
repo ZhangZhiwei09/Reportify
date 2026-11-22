@@ -83,6 +83,10 @@
 | GET | `/runs/{id}/approvals` | 待审批工具调用 |
 | POST | `/runs/{id}/approvals/{approval_id}` | 允许 / 拒绝 |
 
+> 实现注记（2026-11-22，M5）：§5.1–§5.5 的路由已全部落地。审批接口的 `decision` 取
+> `approve`/`deny`；全部待批项决策后同一个 run 续跑（`waiting_approval → running → succeeded`）。
+> `/runs/{id}/events` 在 run 处于 `waiting_approval` 时保持连接（不发终态事件），前端据此显示审批卡片。
+
 **POST 消息请求体**：
 
 ```json

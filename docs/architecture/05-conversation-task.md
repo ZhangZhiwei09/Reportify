@@ -239,6 +239,11 @@ stateDiagram-v2
 
 **MVP 限制**：不支持 Run 中途断点续跑；只支持「取消后重跑」与「审批后继续」。
 
+> 实现注记（2026-11-22，M5）：审批挂起时 `task_run.status='waiting_approval'`，待批项写入
+> `task_run.pending_approvals`（同时发 `approval_required` 事件），run 的 `history_blob` 已保存；
+> 全部待批项决策后**同一个 run** 用 `DeferredToolResults` 续跑，事件序列继续递增，不新建 run。
+> 审批前工具不会执行；拒绝时工具跳过并记 `rejected` 审计。审批超时自动取消（24h）未实现。
+
 ---
 
 ## 10. 与 UI / API 的契约

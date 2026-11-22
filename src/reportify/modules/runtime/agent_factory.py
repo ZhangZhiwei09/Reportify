@@ -6,7 +6,7 @@ production reads the DeepSeek settings.
 
 from __future__ import annotations
 
-from pydantic_ai import Agent
+from pydantic_ai import Agent, DeferredToolRequests
 from pydantic_ai.models import Model
 from pydantic_ai.models.openai import OpenAIChatModel
 from pydantic_ai.providers.deepseek import DeepSeekProvider
@@ -35,7 +35,8 @@ def build_agent(model: Model, settings: Settings) -> Agent[RuntimeDeps, str]:
     return Agent[RuntimeDeps, str](
         model,
         deps_type=RuntimeDeps,
-        output_type=str,
+        # A deferred output means "these calls need a human decision" (03 §9.2).
+        output_type=[str, DeferredToolRequests],
         retries=AGENT_RETRIES,
         tool_timeout=float(settings.run_tool_timeout_seconds),
         end_strategy="graceful",
