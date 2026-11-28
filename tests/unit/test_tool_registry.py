@@ -36,10 +36,23 @@ def test_builtin_specs_cover_the_contract() -> None:
         "fetch_dataset",
         "load_skill",
         "generate_report",
+        "analyze_trend",
+        "analyze_distribution",
+        "compare_periods",
+        "detect_anomalies",
+        "analyze_correlation",
     }
     risk = {spec.model_name: spec.risk_level for spec in BUILTIN_SPECS}
     assert risk["generate_report"] == "write"
     assert all(risk[name] == "read" for name in risk if name != "generate_report")
+    analysis = {spec.model_name for spec in BUILTIN_SPECS if spec.kind == "builtin_analysis"}
+    assert analysis == {
+        "analyze_trend",
+        "analyze_distribution",
+        "compare_periods",
+        "detect_anomalies",
+        "analyze_correlation",
+    }
 
 
 def test_input_schema_only_describes_declared_arguments() -> None:

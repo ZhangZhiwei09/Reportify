@@ -16,8 +16,15 @@ from pydantic_ai import RunContext
 
 from reportify.core.errors import ApiError
 from reportify.db.models import DatasetSnapshot
+from reportify.modules.analysis import compute as analysis
+from reportify.modules.analysis.frames import frame_from_rows
 from reportify.modules.connectors.errors import DataLayerError
-from reportify.modules.connectors.schemas import Lineage, QuerySpec
+from reportify.modules.connectors.schemas import (
+    ColumnRef,
+    Lineage,
+    QuerySpec,
+    TimeRange,
+)
 from reportify.modules.reports.schemas import ReportSchema
 from reportify.modules.tools.schemas import ToolResult
 from reportify.modules.workspace.loader import WorkspaceValidationError
@@ -46,11 +53,64 @@ def _failure_from_exception(exc: Exception) -> ToolResult:
     if isinstance(exc, ApiError):
         code = "not_found" if exc.status_code == 404 else "invalid_argument"
         return ToolResult.failure(code, exc.detail)  # type: ignore[arg-type]
+    if isinstance(exc, KeyError):
+        return ToolResult.failure("invalid_argument", f"unknown field: {exc}")
+    if isinstance(exc, ValueError):
+        return ToolResult.failure("invalid_argument", str(exc))
     if isinstance(exc, DataLayerError):
         return ToolResult.failure("upstream_error", exc.detail)
     if isinstance(exc, WorkspaceValidationError):
         return ToolResult.failure("not_found", str(exc))
     return ToolResult.failure("internal_error", f"{type(exc).__name__}")
+
+
+ANALYSIS_SAMPLE_LIMIT = 10_000
+
+
+async def _load_analysis_frame(
+    deps: Any,
+    data_source_id: UUID,
+    table: str,
+    columns: list[str],
+    *,
+    time_column: str | None = None,
+    start: datetime | None = None,
+    end: datetime | None = None,
+) -> tuple[Any, Any, list[str]]:
+    """Fetch a bounded sample through the safe query builder and build a frame."""
+    spec = QuerySpec(
+        table=table,
+        columns=[ColumnRef(name=column) for column in columns],
+        limit=ANALYSIS_SAMPLE_LIMIT,
+    )
+    if time_column and (start is not None or end is not None):
+        spec = spec.model_copy(
+            update={
+                "time_range": TimeRange(column=time_column, start=start, end=end),
+            }
+        )
+    connector = await deps.connectors.get(data_source_id)
+    result = await connector.execute(spec, purpose="analysis")
+    await _attach_snapshot_to_run(deps, result.snapshot_id)
+    frame = frame_from_rows(result.rows, result.columns)
+    warnings = []
+    if result.truncated or result.row_count >= ANALYSIS_SAMPLE_LIMIT:
+        warnings.append(
+            f"sample capped at {ANALYSIS_SAMPLE_LIMIT} rows; results describe the sample"
+        )
+    return frame, result.lineage, warnings
+
+
+def _analysis_result(outcome: Any, lineage: Any, extra_warnings: list[str]) -> ToolResult:
+    warnings = [*extra_warnings, *outcome.warnings]
+    return ToolResult(
+        ok=True,
+        summary=outcome.summary,
+        data=outcome.model_dump(),
+        lineage=lineage,
+        warnings=warnings,
+        truncated=outcome.truncated,
+    )
 
 
 async def _attach_snapshot_to_run(deps: Any, snapshot_id: UUID) -> None:
@@ -357,6 +417,208 @@ async def generate_report(
     )
 
 
+async def analyze_trend(
+    ctx: RunContext[Any],
+    data_source_id: UUID,
+    table: str,
+    metric: str,
+    time_column: str,
+    granularity: str = "day",
+    agg: str = "sum",
+    start: datetime | None = None,
+    end: datetime | None = None,
+) -> ToolResult:
+    """按时间粒度聚合指标，给出首末值、变化率、斜率与波动率。
+
+    Args:
+        data_source_id: 数据源 ID。
+        table: 表名，可带 schema 前缀。
+        metric: 数值字段。
+        time_column: 时间字段。
+        granularity: hour / day / week / month。
+        agg: sum / avg / count。
+        start: 可选起始时间（含）。
+        end: 可选结束时间（含）。
+    """
+    deps = ctx.deps
+    await deps.ensure_tool_allowed("analyze_trend")
+    if granularity not in {"hour", "day", "week", "month"}:
+        return ToolResult.failure("invalid_argument", f"unsupported granularity: {granularity}")
+    if agg not in {"sum", "avg", "mean", "count"}:
+        return ToolResult.failure("invalid_argument", f"unsupported aggregation: {agg}")
+    try:
+        frame, lineage, warnings = await _load_analysis_frame(
+            deps,
+            data_source_id,
+            table,
+            [time_column, metric],
+            time_column=time_column,
+            start=start,
+            end=end,
+        )
+        outcome = analysis.trend(
+            frame,
+            time_column=time_column,
+            metric_column=metric,
+            granularity=granularity,
+            agg=agg,
+        )
+    except Exception as exc:  # noqa: BLE001
+        return _failure_from_exception(exc)
+    return _analysis_result(outcome, lineage, warnings)
+
+
+async def analyze_distribution(
+    ctx: RunContext[Any],
+    data_source_id: UUID,
+    table: str,
+    field: str,
+    bins: int = 10,
+) -> ToolResult:
+    """对字段做分布统计：直方图、均值/标准差/偏度；非数值字段给出 Top 频次。
+
+    Args:
+        data_source_id: 数据源 ID。
+        table: 表名。
+        field: 待统计字段。
+        bins: 直方图箱数（2–50）。
+    """
+    deps = ctx.deps
+    await deps.ensure_tool_allowed("analyze_distribution")
+    try:
+        frame, lineage, warnings = await _load_analysis_frame(
+            deps, data_source_id, table, [field]
+        )
+        outcome = analysis.distribution(frame, field=field, bins=bins)
+    except Exception as exc:  # noqa: BLE001
+        return _failure_from_exception(exc)
+    return _analysis_result(outcome, lineage, warnings)
+
+
+async def compare_periods(
+    ctx: RunContext[Any],
+    data_source_id: UUID,
+    table: str,
+    metric: str,
+    time_column: str,
+    current_start: datetime,
+    current_end: datetime,
+    previous_start: datetime,
+    previous_end: datetime,
+    agg: str = "sum",
+) -> ToolResult:
+    """比较指标在两个时间区间上的差异与变化率。
+
+    Args:
+        data_source_id: 数据源 ID。
+        table: 表名。
+        metric: 数值字段。
+        time_column: 时间字段。
+        current_start / current_end: 本期区间（含端点）。
+        previous_start / previous_end: 对比期区间（含端点）。
+        agg: sum / avg / count。
+    """
+    deps = ctx.deps
+    await deps.ensure_tool_allowed("compare_periods")
+    if current_start > current_end or previous_start > previous_end:
+        return ToolResult.failure("invalid_argument", "period start must be before end")
+    if agg not in {"sum", "avg", "mean", "count"}:
+        return ToolResult.failure("invalid_argument", f"unsupported aggregation: {agg}")
+    try:
+        frame, lineage, warnings = await _load_analysis_frame(
+            deps,
+            data_source_id,
+            table,
+            [time_column, metric],
+            time_column=time_column,
+            start=min(current_start, previous_start),
+            end=max(current_end, previous_end),
+        )
+        outcome = analysis.compare_periods(
+            frame,
+            time_column=time_column,
+            metric_column=metric,
+            current=(current_start, current_end),
+            previous=(previous_start, previous_end),
+            agg=agg,
+        )
+    except Exception as exc:  # noqa: BLE001
+        return _failure_from_exception(exc)
+    return _analysis_result(outcome, lineage, warnings)
+
+
+async def detect_anomalies(
+    ctx: RunContext[Any],
+    data_source_id: UUID,
+    table: str,
+    metric: str,
+    time_column: str,
+    method: str = "zscore",
+    threshold: float = 3.0,
+) -> ToolResult:
+    """按 z-score 或 IQR 检测指标异常点。
+
+    Args:
+        data_source_id: 数据源 ID。
+        table: 表名。
+        metric: 数值字段。
+        time_column: 时间字段。
+        method: zscore / iqr。
+        threshold: z-score 阈值或 IQR 倍数。
+    """
+    deps = ctx.deps
+    await deps.ensure_tool_allowed("detect_anomalies")
+    if method not in {"zscore", "iqr"}:
+        return ToolResult.failure("invalid_argument", f"unsupported method: {method}")
+    if threshold <= 0:
+        return ToolResult.failure("invalid_argument", "threshold must be positive")
+    try:
+        frame, lineage, warnings = await _load_analysis_frame(
+            deps, data_source_id, table, [time_column, metric]
+        )
+        outcome = analysis.detect_anomalies(
+            frame,
+            time_column=time_column,
+            metric_column=metric,
+            method=method,
+            threshold=threshold,
+        )
+    except Exception as exc:  # noqa: BLE001
+        return _failure_from_exception(exc)
+    return _analysis_result(outcome, lineage, warnings)
+
+
+async def analyze_correlation(
+    ctx: RunContext[Any],
+    data_source_id: UUID,
+    table: str,
+    fields: list[str],
+    method: str = "pearson",
+) -> ToolResult:
+    """计算多个数值字段之间的相关系数矩阵与最强字段对。
+
+    Args:
+        data_source_id: 数据源 ID。
+        table: 表名。
+        fields: 至少两个数值字段。
+        method: pearson / spearman。
+    """
+    deps = ctx.deps
+    await deps.ensure_tool_allowed("analyze_correlation")
+    if len(fields) < 2:
+        return ToolResult.failure("invalid_argument", "at least two fields are required")
+    if method not in {"pearson", "spearman"}:
+        return ToolResult.failure("invalid_argument", f"unsupported method: {method}")
+    try:
+        frame, lineage, warnings = await _load_analysis_frame(
+            deps, data_source_id, table, list(fields)
+        )
+        outcome = analysis.correlation(frame, fields=list(fields), method=method)
+    except Exception as exc:  # noqa: BLE001
+        return _failure_from_exception(exc)
+    return _analysis_result(outcome, lineage, warnings)
+
+
 BUILTIN_FUNCTIONS: dict[str, Any] = {
     "inspect_dataset": inspect_dataset,
     "query_dataset": query_dataset,
@@ -364,4 +626,9 @@ BUILTIN_FUNCTIONS: dict[str, Any] = {
     "profile_dataset": profile_dataset,
     "load_skill": load_skill,
     "generate_report": generate_report,
+    "analyze_trend": analyze_trend,
+    "analyze_distribution": analyze_distribution,
+    "compare_periods": compare_periods,
+    "detect_anomalies": detect_anomalies,
+    "analyze_correlation": analyze_correlation,
 }

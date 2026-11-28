@@ -112,6 +112,113 @@ BUILTIN_SPECS: tuple[ToolSpec, ...] = (
         arguments={"report": "object"},
         required_arguments=("report",),
     ),
+    ToolSpec(
+        name="builtin.analyze_trend",
+        model_name="analyze_trend",
+        kind="builtin_analysis",
+        risk_level="read",
+        display_name="趋势分析",
+        description=(
+            "按小时/日/周/月聚合指标，返回首末值、变化率、最小二乘斜率与波动率。"
+            "只做统计，不解释业务原因；可在口径中看到样本量与分桶方式。"
+        ),
+        arguments={
+            "data_source_id": "string",
+            "table": "string",
+            "metric": "string",
+            "time_column": "string",
+            "granularity": "string",
+            "agg": "string",
+            "start": "string",
+            "end": "string",
+        },
+        required_arguments=("data_source_id", "table", "metric", "time_column"),
+    ),
+    ToolSpec(
+        name="builtin.analyze_distribution",
+        model_name="analyze_distribution",
+        kind="builtin_analysis",
+        risk_level="read",
+        display_name="分布分析",
+        description=(
+            "对字段做直方图与描述统计（均值、标准差、最小值、最大值、偏度、空值率）；"
+            "非数值字段返回 Top 频次。"
+        ),
+        arguments={
+            "data_source_id": "string",
+            "table": "string",
+            "field": "string",
+            "bins": "integer",
+        },
+        required_arguments=("data_source_id", "table", "field"),
+    ),
+    ToolSpec(
+        name="builtin.compare_periods",
+        model_name="compare_periods",
+        kind="builtin_analysis",
+        risk_level="read",
+        display_name="周期对比",
+        description="比较指标在两个时间区间上的聚合值，返回绝对差与变化率。",
+        arguments={
+            "data_source_id": "string",
+            "table": "string",
+            "metric": "string",
+            "time_column": "string",
+            "current_start": "string",
+            "current_end": "string",
+            "previous_start": "string",
+            "previous_end": "string",
+            "agg": "string",
+        },
+        required_arguments=(
+            "data_source_id",
+            "table",
+            "metric",
+            "time_column",
+            "current_start",
+            "current_end",
+            "previous_start",
+            "previous_end",
+        ),
+    ),
+    ToolSpec(
+        name="builtin.detect_anomalies",
+        model_name="detect_anomalies",
+        kind="builtin_analysis",
+        risk_level="read",
+        display_name="异常检测",
+        description=(
+            "按时间排序后用 z-score 或 IQR 判定异常点，返回异常点、分值与阈值参数。"
+            "不推断原因，只报告统计意义上的离群值。"
+        ),
+        arguments={
+            "data_source_id": "string",
+            "table": "string",
+            "metric": "string",
+            "time_column": "string",
+            "method": "string",
+            "threshold": "number",
+        },
+        required_arguments=("data_source_id", "table", "metric", "time_column"),
+    ),
+    ToolSpec(
+        name="builtin.analyze_correlation",
+        model_name="analyze_correlation",
+        kind="builtin_analysis",
+        risk_level="read",
+        display_name="相关性分析",
+        description=(
+            "计算多个数值字段的 Pearson 或 Spearman 相关系数矩阵，并返回最强的字段对。"
+            "相关不等于因果，结论需说明这一点。"
+        ),
+        arguments={
+            "data_source_id": "string",
+            "table": "string",
+            "fields": "array",
+            "method": "string",
+        },
+        required_arguments=("data_source_id", "table", "fields"),
+    ),
 )
 
 _SPECS_BY_MODEL_NAME: dict[str, ToolSpec] = {spec.model_name: spec for spec in BUILTIN_SPECS}

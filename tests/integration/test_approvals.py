@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import json
 import time
@@ -51,7 +51,7 @@ def _parked_run(
     grant(client, server["id"], tool, risk="destructive", ack=True)
 
     conversation_id = client.post("/api/v1/conversations", json={}).json()["id"]
-    sent = make_send_message(client, conversation_id, "è°ƒç”¨å±é™©å·¥å…·")
+    sent = make_send_message(client, conversation_id, "调用危险工具")
     _wait_for_status(client, sent["run_id"], WAITING)
     return sent, expected_model_name(slug, tool)
 
@@ -63,7 +63,7 @@ def _pending(client, run_id: str) -> list[dict]:
 def test_destructive_tool_waits_for_approval(client_factory, fake_mcp, database_url) -> None:
     slug = unique_slug()
     model_name = expected_model_name(slug, "echo")
-    client = client_factory([tool_step(model_name, {"text": "hi"}), text_step("å·²å¤„ç†ã€‚")])
+    client = client_factory([tool_step(model_name, {"text": "hi"}), text_step("已处理。")])
     sent, _model_name = _parked_run(client, fake_mcp, slug)
 
     run = client.get(f"/api/v1/runs/{sent['run_id']}").json()
@@ -98,7 +98,7 @@ def test_destructive_tool_waits_for_approval(client_factory, fake_mcp, database_
 def test_approving_resumes_the_same_run(client_factory, fake_mcp) -> None:
     slug = unique_slug()
     model_name = expected_model_name(slug, "echo")
-    client = client_factory([tool_step(model_name, {"text": "hi"}), text_step("å·²å¤„ç†ã€‚")])
+    client = client_factory([tool_step(model_name, {"text": "hi"}), text_step("已处理。")])
     sent, _model_name = _parked_run(client, fake_mcp, slug)
 
     approval_id = _pending(client, sent["run_id"])[0]["approval_id"]
@@ -122,7 +122,7 @@ def test_approving_resumes_the_same_run(client_factory, fake_mcp) -> None:
 def test_denying_skips_the_tool(client_factory, fake_mcp, database_url) -> None:
     slug = unique_slug()
     model_name = expected_model_name(slug, "echo")
-    client = client_factory([tool_step(model_name, {"text": "hi"}), text_step("å·²å–æ¶ˆã€‚")])
+    client = client_factory([tool_step(model_name, {"text": "hi"}), text_step("已取消。")])
     sent, _model_name = _parked_run(client, fake_mcp, slug)
 
     approval_id = _pending(client, sent["run_id"])[0]["approval_id"]
@@ -167,7 +167,7 @@ def test_partial_decision_keeps_waiting(client_factory, fake_mcp) -> None:
                     ToolCallPart(tool_name=second, args={"seconds": 0}, tool_call_id="c2"),
                 ]
             )
-        return ModelResponse(parts=[TextPart(content="éƒ½å¤„ç†å®Œäº†ã€‚")])
+        return ModelResponse(parts=[TextPart(content="都处理完了。")])
 
     async def stream_fn(messages, info):
         if _returns(messages) == 0:
@@ -182,7 +182,7 @@ def test_partial_decision_keeps_waiting(client_factory, fake_mcp) -> None:
                 )
             }
             return
-        yield "éƒ½å¤„ç†å®Œäº†ã€‚"
+        yield "都处理完了。"
 
     client = client_factory(model=FunctionModel(model_fn, stream_function=stream_fn))
     server = create_server(client, fake_mcp.url, slug)
@@ -191,7 +191,7 @@ def test_partial_decision_keeps_waiting(client_factory, fake_mcp) -> None:
     grant(client, server["id"], "slow", risk="destructive", ack=True)
 
     conversation_id = client.post("/api/v1/conversations", json={}).json()["id"]
-    sent = make_send_message(client, conversation_id, "ä¸¤ä¸ªå±é™©è°ƒç”¨")
+    sent = make_send_message(client, conversation_id, "两个危险调用")
     _wait_for_status(client, sent["run_id"], WAITING)
 
     approvals = _pending(client, sent["run_id"])
@@ -227,9 +227,9 @@ def test_unknown_approval_is_404(client_factory, fake_mcp) -> None:
 
 
 def test_approval_on_finished_run_is_409(client_factory) -> None:
-    client = client_factory([text_step("å®Œæˆã€‚")])
+    client = client_factory([text_step("完成。")])
     conversation_id = client.post("/api/v1/conversations", json={}).json()["id"]
-    sent = make_send_message(client, conversation_id, "æ™®é€šè¯·æ±‚")
+    sent = make_send_message(client, conversation_id, "普通请求")
     wait_for_run(client, sent["run_id"])
 
     response = client.post(
@@ -251,8 +251,7 @@ def test_waiting_run_blocks_new_messages(client_factory, fake_mcp) -> None:
     ]
     second = client.post(
         f"/api/v1/conversations/{conversation_id}/messages",
-        json={"content": "å†æ¥ä¸€ä¸ª"},
+        json={"content": "再来一个"},
     )
     assert second.status_code == 409
     assert second.json()["code"] == "conversation_busy"
-

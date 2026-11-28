@@ -90,6 +90,10 @@ class AuthorizationDecision:
 
 > 只定义输入/输出与 lineage，不定义算法；算法属于 §12+。
 
+> 实现注记（2026-11-28，M6）：`builtin_analysis` 的 5 个工具已实现（`modules/analysis/`），
+> 统计全部由 pandas 完成，返回 `AnalysisResult` 并带 `lineage`；样本上限 10,000 行、
+> 序列最多 500 点、相关性最多 20 字段。口径写在 `lineage.definition`（聚合方式、时间粒度、样本量）。
+
 | 工具 | 输入 | 输出 | 说明 |
 | --- | --- | --- | --- |
 | `inspect_dataset` | `data_source_id`, `schema?`, `table?` | `TableSchema[]` | 只读结构发现 |

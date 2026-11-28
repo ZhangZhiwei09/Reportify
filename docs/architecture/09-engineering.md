@@ -269,11 +269,12 @@ Langfuse 通过 OTLP 接入属于可选验证项，不作为默认依赖。
 | M3 MCP | Hub、发现、授权、审计、Toolset 集成 | Fake Server 上完成发现/调用/拒绝/超时 |
 | M4 配置与交付 | Skills/Templates、8 个视图、Docker Compose、OTel | 本地一键启动；配置变更生效；文档与实现一致 |
 
-**进度（2026-11-22）**：M0–M5 全部实现并通过验收证据（281 项测试 + 真实进程），
-见 `mydocs/specs/` 下各里程碑 Spec。M5 补齐了 07 契约的最后三处：工具审批（`waiting_approval` 同 run 续跑）、
-Workspace 文件 API 与 `workspace_audit` 落库、`GET /config`。
-未做（明确属于 §12+）：ARQ worker 与定时任务配置、报告正式渲染器、OAuth 2.1、审批超时自动取消。
-`docker-compose.yml` 含 api/postgres/redis 三个服务，未包含 worker。
+**进度（2026-11-28）**：M0–M6 已实现（304 项测试 + 真实进程），Spec 见 `mydocs/specs/`。
+M5 补齐了 07 契约的最后三处：工具审批（`waiting_approval` 同 run 续跑）、Workspace 文件 API 与
+`workspace_audit` 落库、`GET /config`。M6 补齐 Analysis Engine 的 5 个 `builtin_analysis` 工具
+（趋势/分布/周期对比/异常/相关），统计全部由 pandas 完成。
+未做：ARQ worker 与定时任务配置、报告正式渲染器（ECharts 需先解决离线依赖）、OAuth 2.1、
+审批超时自动取消、Memory。`docker-compose.yml` 含 api/postgres/redis 三个服务，未包含 worker。
 
 每个里程碑结束必须更新 Spec 与本文档，记录偏差。
 
