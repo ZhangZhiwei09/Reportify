@@ -203,14 +203,17 @@ class ContextAssembler:
 3. 历史必须经 `sanitize_messages()` 后再使用；来自 UI 的内容视为不可信。
 4. DeepSeek 思考模式要求：历史中的 `reasoning_content` 必须原样回传；不得重写或裁剪单条消息内部字段。
 5. Token 预算：默认占模型窗口 60%；超限时按「最旧工具结果 → 最旧助手消息 → 最旧用户消息」顺序裁剪，**不裁剪**平台不变量、当前目标、最近一次计划与最新工具结果。
-6. Memory 检索接口（§12+）：
+6. Memory 检索（M10 已实现）：
 
 ```python
-class MemoryProvider(Protocol):
-    async def search(self, query: str, limit: int = 5) -> list[MemoryItem]: ...
+class MemoryService:
+    async def search(self, query: str, *, conversation_id: UUID | None = None,
+                     limit: int | None = None) -> list[MemoryItem]: ...
 ```
 
-MVP 返回空列表；调用点预留，不改变主链路。
+召回为**词面打分**（拉丁词 + 中文二元组），范围是本会话 + 全局；只注入与目标有共享 token 的条目，
+上限 `memory_max_items`（默认 5），段落可被预算裁剪；`plan` 事件记录 `memory_used` 便于追溯。
+无向量库，Agent 不自动写记忆。
 
 ---
 

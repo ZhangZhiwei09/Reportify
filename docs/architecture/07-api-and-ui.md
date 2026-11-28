@@ -180,6 +180,17 @@
 | GET | `/ready` | 依赖就绪（PG/Redis） |
 | GET | `/config` | 非敏感能力与版本 |
 
+### 5.6 长期记忆（M10）
+
+| 方法 | 路径 | 说明 |
+| --- | --- | --- |
+| GET | `/memory` | 列表（可按 `scope` / `conversation_id` 过滤） |
+| POST | `/memory` | 新增（global 或 conversation 作用域） |
+| GET | `/memory/search` | 词面召回：`q` + 可选 `conversation_id` + `limit` |
+| DELETE | `/memory/{id}` | 删除 |
+
+> `POST` 的 `scope=conversation` 必须带存在的 `conversation_id`（否则 404）；`scope=global` 不得带 `conversation_id`（422）。
+
 ---
 
 ## 6. SSE 事件契约

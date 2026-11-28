@@ -25,6 +25,8 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from reportify.db.models import AnalysisTask, DataSource
 from reportify.db.repositories import conversations as conversations_repo
 from reportify.db.repositories import tasks as tasks_repo
+from reportify.modules.memory.schemas import MemoryItem
+from reportify.modules.memory.service import MemoryService
 from reportify.modules.workspace.schemas import SkillMeta, WorkspaceSnapshot
 
 logger = logging.getLogger(__name__)
@@ -51,6 +53,7 @@ class ContextBundle:
     message_history: list[ModelMessage] = field(default_factory=list)
     skill_index: list[SkillMeta] = field(default_factory=list)
     template_summary: str | None = None
+    memory_used: list[MemoryItem] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
 
 
@@ -69,11 +72,15 @@ class ContextAssembler:
         char_budget: int = 28_000,
         history_message_limit: int = 40,
         max_message_chars: int = 8_000,
+        memory: MemoryService | None = None,
+        memory_limit: int = 5,
     ) -> None:
         self._session_factory = session_factory
         self._char_budget = char_budget
         self._history_message_limit = history_message_limit
         self._max_message_chars = max_message_chars
+        self._memory = memory
+        self._memory_limit = memory_limit
 
     async def build(
         self,
@@ -82,7 +89,8 @@ class ContextAssembler:
     ) -> ContextBundle:
         warnings: list[str] = list(workspace.warnings)
         data_sources = await self._active_data_sources()
-        sections = self._sections(task, workspace, data_sources)
+        memories = await self._recall(task)
+        sections = self._sections(task, workspace, data_sources, memories)
         instructions = self._fit(sections, warnings)
         history, fallback = await self._history(task)
         if fallback:
@@ -94,14 +102,33 @@ class ContextAssembler:
             message_history=history,
             skill_index=list(workspace.skills),
             template_summary=self._template_summary(workspace, task),
+            memory_used=memories,
             warnings=warnings,
         )
+
+    async def _recall(self, task: AnalysisTask) -> list[MemoryItem]:
+        if self._memory is None:
+            return []
+        try:
+            return await self._memory.search(
+                task.goal,
+                conversation_id=task.conversation_id,
+                limit=self._memory_limit,
+            )
+        except Exception:  # noqa: BLE001 - memory must never break a run
+            logger.warning(
+                "memory recall failed",
+                exc_info=True,
+                extra={"task_id": str(task.id)},
+            )
+            return []
 
     def _sections(
         self,
         task: AnalysisTask,
         workspace: WorkspaceSnapshot,
         data_sources: list[DataSource],
+        memories: list[MemoryItem] | None = None,
     ) -> list[_Section]:
         sections: list[_Section] = [
             _Section("invariants", PLATFORM_INVARIANTS, droppable=False),
@@ -130,6 +157,10 @@ class ContextAssembler:
                     True,
                 )
             )
+        if memories:
+            lines = ["## 长期记忆（用户确认过的偏好与事实）"]
+            lines.extend(f"- [{item.kind}] {item.content}" for item in memories)
+            sections.append(_Section("memory", "\n".join(lines), True))
 
         task_lines = ["## 当前分析任务", f"目标：{task.goal.strip()}"]
         if task.skill_names:

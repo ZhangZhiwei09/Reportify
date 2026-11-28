@@ -16,6 +16,7 @@ from reportify.modules.connectors.profiling import ProfilingService
 from reportify.modules.conversation.service import ConversationService
 from reportify.modules.mcp.hub import MCPHub
 from reportify.modules.mcp.runtime import MCPRuntime
+from reportify.modules.memory.service import MemoryService
 from reportify.modules.reports.service import ReportService
 from reportify.modules.reports.templates import ReportTemplateService
 from reportify.modules.runtime.runtime import AgentRuntime
@@ -80,6 +81,10 @@ def get_tool_registry(request: Request) -> ToolRegistry:
 
 def get_report_service(request: Request) -> ReportService:
     return request.app.state.report_service
+
+
+def get_memory_service(request: Request) -> MemoryService:
+    return request.app.state.memory_service
 
 
 def get_mcp_hub(request: Request) -> MCPHub:

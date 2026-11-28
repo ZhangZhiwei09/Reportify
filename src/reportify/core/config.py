@@ -69,6 +69,10 @@ class Settings(BaseSettings):
     scheduler_tick_seconds: float = 15.0
     scheduler_batch_size: int = 10
 
+    # Long-term memory (M10): lexical recall, bounded per run.
+    memory_enabled: bool = True
+    memory_max_items: int = 5
+
     # Observability. Unset means tracing is a no-op (09 §10).
     otel_exporter_otlp_endpoint: str | None = None
 

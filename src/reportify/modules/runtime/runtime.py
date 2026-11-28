@@ -445,6 +445,7 @@ class AgentRuntime:
                     "approval_required_tools": sorted(approval_names),
                     "unattended": unattended,
                     "hidden_tools": hidden_tools,
+                    "memory_used": [str(item.id) for item in bundle.memory_used],
                     "budget": budget.as_dict(),
                 },
             )

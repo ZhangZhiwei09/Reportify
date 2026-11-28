@@ -89,9 +89,9 @@ Reportify 是一个通用型 AI 数据分析与可视化 Agent 平台：用户�
 
 ## 6. 范围声明
 
-**已实现（M0–M8）**：Data Connector、MCP Hub、MCP Client Runtime、Tool Registry、Agent Workspace、Skills、Report Template、Agent Runtime、Conversation / Analysis Task、Analysis Engine、Report Renderer、Scheduler，以及数据模型与工程方案。
+**已实现（M0–M10）**：Data Connector、MCP Hub、MCP Client Runtime、Tool Registry、Agent Workspace、Skills、Report Template、Agent Runtime、Conversation / Analysis Task、Analysis Engine、Report Renderer、Report Revision、Scheduler、Memory，以及数据模型与工程方案。
 
-**仅接口**：Memory、Context 压缩、Report Revision、OAuth 2.1。
+**仅接口 / 未做**：Context 压缩、OAuth 2.1。
 
 **明确不做**：多租户、RBAC、微服务、React 前端、LLM 直接生成 HTML/SQL/JS、脚本沙箱。
 

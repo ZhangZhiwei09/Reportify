@@ -18,6 +18,7 @@ from reportify.api.middleware import SecurityHeadersMiddleware
 from reportify.api.routes.conversations import router as conversations_router
 from reportify.api.routes.data_sources import router as data_sources_router
 from reportify.api.routes.mcp import router as mcp_router
+from reportify.api.routes.memory import router as memory_router
 from reportify.api.routes.pages import router as pages_router
 from reportify.api.routes.report_templates import router as report_templates_router
 from reportify.api.routes.reports import router as reports_router
@@ -42,6 +43,7 @@ from reportify.modules.connectors.profiling import ProfilingService
 from reportify.modules.conversation.service import ConversationService
 from reportify.modules.mcp.hub import MCPHub
 from reportify.modules.mcp.runtime import MCPRuntime
+from reportify.modules.memory.service import MemoryService
 from reportify.modules.reports.service import ReportService
 from reportify.modules.reports.templates import ReportTemplateService
 from reportify.modules.runtime.agent_factory import build_agent, build_model
@@ -76,10 +78,13 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     broker = EventBroker()
     event_publisher = EventPublisher(session_factory, broker)
     report_service = ReportService(session_factory, settings.reports_dir)
+    memory_service = MemoryService(session_factory, max_items=settings.memory_max_items)
     workspace_loader = WorkspaceLoader(settings.workspace_dir)
     assembler = ContextAssembler(
         session_factory,
         char_budget=settings.instructions_char_budget,
+        memory=memory_service if settings.memory_enabled else None,
+        memory_limit=settings.memory_max_items,
     )
 
     model = app.state.model if app.state.model is not None else build_model(settings)
@@ -121,6 +126,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     app.state.tool_registry = tool_registry
     app.state.event_publisher = event_publisher
     app.state.report_service = report_service
+    app.state.memory_service = memory_service
     app.state.conversation_service = ConversationService(
         session_factory,
         max_prompt_chars=settings.max_prompt_chars,
@@ -201,6 +207,7 @@ def create_app(settings: Settings | None = None, *, model: Model | None = None) 
     app.include_router(schedules_router)
     app.include_router(reports_router)
     app.include_router(mcp_router)
+    app.include_router(memory_router)
     app.include_router(skills_router)
     app.include_router(report_templates_router)
     app.include_router(workspace_router)

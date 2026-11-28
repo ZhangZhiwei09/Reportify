@@ -50,7 +50,7 @@ async def config(
             "reports": True,
             "approvals": True,
             "scheduler": True,
-            "memory": False,
+            "memory": True,
         },
         "limits": {
             "run_request_limit": settings.run_request_limit,
@@ -67,5 +67,9 @@ async def config(
         "scheduler": {
             "loop_enabled": settings.scheduler_enabled,
             "tick_seconds": settings.scheduler_tick_seconds,
+        },
+        "memory": {
+            "enabled": settings.memory_enabled,
+            "max_items": settings.memory_max_items,
         },
     }

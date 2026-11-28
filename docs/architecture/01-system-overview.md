@@ -20,7 +20,7 @@
 ## 2. Non-Goals
 
 - 不设计多租户、RBAC、微服务拆分。
-- 不设计 Memory / Context 压缩 / Report Revision / Scheduler 的内部实现（§12+）。
+- 不设计 Context 压缩的内部实现（§12+）；Memory、Report Revision、Scheduler 已由 M8–M10 实现。
 - 不规定前端框架；管理台保持服务端渲染 + 原生 JavaScript。
 - 不承诺高可用集群部署；MVP 面向单机与小团队。
 
@@ -51,7 +51,7 @@
 | 5 | Agent Workspace | **详细设计** | SOUL / USER / AGENTS 加载与优先级 |
 | 6 | Skills Manager | **详细设计** | 索引、匹配、渐进加载 |
 | 7 | Conversation Management | **详细设计** | 会话、消息、事件持久化 |
-| 8 | Memory Management | **接口占位** | §12+；Runtime 只预留检索接口 |
+| 8 | Memory Management | **已实现（M10）** | `memory` 表 + 词面召回注入；无向量库 |
 | 9 | Context Management | **最小接口** | 只定义 `ContextAssembler` 契约，压缩策略 §12+ |
 | 10 | Analysis Task Management | **详细设计** | 任务状态、多任务、恢复 |
 | 11 | Agent Runtime | **详细设计** | PydanticAI 编排、工具循环、限制、事件 |
@@ -215,11 +215,12 @@ sequenceDiagram
 - Streamable HTTP MCP、工具授权与审计。
 - Workspace / Skills / Templates 文件化加载。
 - 定时任务：`schedule` 表、Cron 解析、tick 派发与 `/schedules` API。
+- 长期记忆：`memory` 表与词面召回注入（`plan.memory_used` 可追溯）。
 - 5 个既有视图 + MCP / Skills / Templates 3 个配置视图。
 
 **不包含**：
 
-- Memory、上下文自动压缩、报告版本树、ARQ 队列与通知渠道（§12+）。
+- 上下文自动压缩、报告版本回滚/分支、ARQ 队列与通知渠道（§12+）。
 - 脚本沙箱、多数据源 Connector、多用户与 RBAC。
 - 报告内追问、在线筛选、下钻。
 

@@ -5,6 +5,7 @@ from reportify.db.models.conversation import Conversation, Message
 from reportify.db.models.data_source import DataSource
 from reportify.db.models.dataset_snapshot import DatasetSnapshot
 from reportify.db.models.mcp import MCPServer, MCPToolCache
+from reportify.db.models.memory import Memory
 from reportify.db.models.metadata import ColumnMetadata, TableMetadata
 from reportify.db.models.report import ReportRef
 from reportify.db.models.schedule import Schedule
@@ -22,6 +23,7 @@ __all__ = [
     "DataSource",
     "MCPServer",
     "MCPToolCache",
+    "Memory",
     "Message",
     "ReportRef",
     "RunEvent",

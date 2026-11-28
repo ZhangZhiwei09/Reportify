@@ -62,7 +62,7 @@ def prepared_database():
                         "TRUNCATE conversation, analysis_task, task_run, run_event, "
                         "message, tool_call_audit, report_ref, tool_definition, "
                         "tool_grant, dataset_snapshot, table_metadata, column_metadata, "
-                        "data_source, secret, workspace_audit, schedule "
+                        "data_source, secret, workspace_audit, schedule, memory "
                         "RESTART IDENTITY CASCADE"
                     )
                 )

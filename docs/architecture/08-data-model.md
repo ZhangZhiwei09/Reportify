@@ -1,7 +1,7 @@
 # 08 · 数据模型
 
 > 范围：§1–§11 的持久化模型与存储分工。  
-> 不在范围：Memory、Context 压缩、Report Version（§12+，另开 Spec）。  
+> 不在范围：Memory 向量检索、Context 压缩、Report Version（§12+，另开 Spec）。  
 > 约定：本文只定义结构与约束，不包含 DDL、SQLAlchemy 模型或迁移脚本。
 
 ---
@@ -14,13 +14,13 @@
 
 - 任一模块文档引用实体时，字段名与语义以本文为准。
 - 报告 lineage、工具审计、MCP 授权、任务恢复所需信息都有明确落点。
-- 不引入多租户、RBAC、Memory 等本次范围外结构。
+- 不引入多租户、RBAC 等本次范围外结构。
 
 ---
 
 ## 2. Non-Goals
 
-- 不设计 Memory / Embedding / 长期记忆表（§12+）。
+- 不设计 Memory 的向量/Embedding 存储（`memory` 表见 §6.21）。
 - 不设计 Report Version / Revision 全量模型（仅保留 `report_ref` 最小引用）。
 - 不设计 Scheduler 的通知、依赖与补跑策略（`schedule` 表本身见 §6.20）。
 - 不设计多租户隔离字段（`tenant_id`、行级安全）。
@@ -447,6 +447,25 @@
 **唯一**：`(task_id, cron, timezone)`。**索引**：`(enabled, next_run_at)`（tick 认领路径）。
 **规则**：tick 用 `FOR UPDATE SKIP LOCKED` 认领到期行，先推进 `next_run_at` 再派发；
 错过窗口不补跑；删除 schedule 只把历史 Run 的 `schedule_id` 置空。
+
+### 6.21 `memory`
+
+> M10 引入；用户显式写入的长期笔记，词面召回后注入指令（无 Embedding）。
+
+| 字段 | 类型 | 约束 | 说明 |
+| --- | --- | --- | --- |
+| `id` | UUID | PK | |
+| `scope` | text(16) | NOT NULL, CHECK | `global` / `conversation` |
+| `scope_id` | UUID | FK → `conversation.id`, NULL, CASCADE | `scope=conversation` 时必填 |
+| `kind` | text(16) | NOT NULL DEFAULT `'fact'`, CHECK | `preference` / `fact` / `definition` |
+| `content` | text | NOT NULL | 单条 ≤1000 字符（API 校验） |
+| `tags` | text[] | NOT NULL DEFAULT `{}` | 召回时与正文一起参与打分 |
+| `created_by` | text(16) | NOT NULL DEFAULT `'user'` | Agent 不自动写入 |
+| `last_used_at` | timestamptz | NULL | 最近一次被注入 |
+| `created_at` / `updated_at` | timestamptz | | |
+
+**CHECK**：`(scope='global' AND scope_id IS NULL) OR (scope='conversation' AND scope_id IS NOT NULL)`。
+**索引**：`(scope, scope_id)`、`(created_at)`。
 
 ---
 
