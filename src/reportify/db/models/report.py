@@ -6,7 +6,16 @@ from datetime import datetime
 from typing import Any
 from uuid import UUID, uuid4
 
-from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Index, String, Text, func
+from sqlalchemy import (
+    CheckConstraint,
+    DateTime,
+    ForeignKey,
+    Index,
+    Integer,
+    String,
+    Text,
+    func,
+)
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -14,12 +23,13 @@ from reportify.db.models.base import Base
 
 
 class ReportRef(Base):
-    """Reference to a generated artifact; rendering internals are §12+."""
+    """Reference to a generated artifact; revisions chain through ``parent_report_id``."""
 
     __tablename__ = "report_ref"
     __table_args__ = (
         CheckConstraint("status IN ('generated', 'failed')", name="status_valid"),
         Index("ix_report_ref_task_id_created_at", "task_id", "created_at"),
+        Index("ix_report_ref_task_id_version", "task_id", "version"),
     )
 
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
@@ -41,6 +51,18 @@ class ReportRef(Base):
     storage_path: Mapped[str] = mapped_column(Text, nullable=False)
     content_hash: Mapped[str] = mapped_column(String(64), nullable=False)
     lineage: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
+    # Validated Report Schema exactly as submitted; the diff source (M9).
+    schema: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
+    version: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=1,
+        server_default="1",
+    )
+    parent_report_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("report_ref.id", ondelete="SET NULL"),
+        nullable=True,
+    )
     status: Mapped[str] = mapped_column(
         String(16),
         nullable=False,

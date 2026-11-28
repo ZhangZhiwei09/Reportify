@@ -24,6 +24,9 @@ async def create_report(
     report_id: UUID | None = None,
     status: str = "generated",
     format: str = "html",
+    schema: dict[str, Any] | None = None,
+    version: int = 1,
+    parent_report_id: UUID | None = None,
 ) -> ReportRef:
     report = ReportRef(
         id=report_id or uuid4(),
@@ -34,12 +37,25 @@ async def create_report(
         storage_path=storage_path,
         content_hash=content_hash,
         lineage=lineage,
+        schema=schema,
+        version=version,
+        parent_report_id=parent_report_id,
         status=status,
     )
     session.add(report)
     await session.commit()
     await session.refresh(report)
     return report
+
+
+async def latest_for_task(session: AsyncSession, task_id: UUID) -> ReportRef | None:
+    """Highest version of a task; the parent of the next revision (05 §8)."""
+    return await session.scalar(
+        select(ReportRef)
+        .where(ReportRef.task_id == task_id)
+        .order_by(ReportRef.version.desc(), ReportRef.created_at.desc())
+        .limit(1)
+    )
 
 
 async def get_report(session: AsyncSession, report_id: UUID) -> ReportRef | None:

@@ -171,8 +171,10 @@
 
 | 方法 | 路径 | 说明 |
 | --- | --- | --- |
-| GET | `/reports` | 报告列表（最小） |
+| GET | `/reports` | 报告列表（含 `version` / `parent_report_id`） |
 | GET | `/reports/{id}` | 元数据与 lineage |
+| GET | `/reports/{id}/revisions` | 版本链（升序，含版本号与生成时间） |
+| GET | `/reports/{id}/diff` | 与上一版（或 `?against=<id>`）的结构化差异 |
 | GET | `/reports/{id}/download` | 下载 HTML（路径校验） |
 | GET | `/health` | 存活 |
 | GET | `/ready` | 依赖就绪（PG/Redis） |
@@ -215,7 +217,7 @@ data: {"tool_call_id":"...","status":"succeeded","duration_ms":820,"summary":"..
 | 视图 | 关键内容 | 数据来源 |
 | --- | --- | --- |
 | 分析工作台 | 会话流、Agent 执行过程、产物卡片、输入框 | conversations / messages / runs SSE |
-| 报告库 | 报告列表、类型、数据源、样本量、状态、查看/下载 | reports |
+| 报告库 | 报告列表、版本、类型、数据源、样本量、状态、查看/下载、版本链与对比 | reports + `/reports/{id}/revisions`、`/diff` |
 | 定时任务 | Cron、时区、启停、上次/下次执行、运行数；新建表单 | schedules API；「立即运行」调 `/schedules/{id}/run` |
 | 数据源 | 连接卡片、只读模式、Schema、表、同步 | data-sources |
 | 字段元数据 | 类型徽章、展示名、单位、标签、描述 | columns |

@@ -9,7 +9,11 @@ from fastapi import APIRouter, Depends, Query
 from fastapi.responses import FileResponse
 
 from reportify.api.deps import get_report_service, require_auth
-from reportify.modules.reports.schemas import ReportRefView
+from reportify.modules.reports.schemas import (
+    ReportDiff,
+    ReportRefView,
+    ReportRevisionRead,
+)
 from reportify.modules.reports.service import ReportService
 
 router = APIRouter(
@@ -45,6 +49,23 @@ async def get_report(
 ) -> ReportRefView:
     report = await service.get(report_id)
     return ReportRefView.model_validate(report)
+
+
+@router.get("/{report_id}/revisions", response_model=list[ReportRevisionRead])
+async def list_revisions(
+    report_id: UUID,
+    service: Annotated[ReportService, Depends(get_report_service)],
+) -> list[ReportRevisionRead]:
+    return await service.revisions(report_id)
+
+
+@router.get("/{report_id}/diff", response_model=ReportDiff)
+async def report_diff(
+    report_id: UUID,
+    service: Annotated[ReportService, Depends(get_report_service)],
+    against: Annotated[UUID | None, Query()] = None,
+) -> ReportDiff:
+    return await service.diff(report_id, against=against)
 
 
 @router.get("/{report_id}/download")

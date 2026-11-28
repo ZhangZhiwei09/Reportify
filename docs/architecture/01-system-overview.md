@@ -58,7 +58,7 @@
 | 12 | Data Profiling | **最小契约** | 工具输入/输出与 lineage；实现 §12+ |
 | 13 | Analysis Engine | **最小契约** | 工具输入/输出与 lineage；算法 §12+ |
 | 14 | Report Engine | **最小契约** | Report Schema 与渲染边界；实现 §12+ |
-| 15 | Report Revision | **最小引用** | 只保留 `report_ref` 与 `parent_task_id` |
+| 15 | Report Revision | **已实现（M9）** | `report_ref.version` / `parent_report_id` / `schema`；版本链与结构化 diff |
 | 16 | Scheduler | **已实现（M8）** | `schedule` 表 + 进程内 tick，`FOR UPDATE SKIP LOCKED` 认领；ARQ 未启用（D-08） |
 | 17 | Observability | **接口** | OTel 埋点与事件字段；后端可替换 |
 

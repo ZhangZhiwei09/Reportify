@@ -392,7 +392,7 @@
 
 ### 6.18 `report_ref`
 
-> 最小引用。报告渲染、版本、归档属于 §12+，本表不承载其内部结构。
+> 已含版本链（M9）。渲染由 `echarts-v1` 完成，表内保存原始 Report Schema 供 diff 使用。
 
 | 字段 | 类型 | 约束 | 说明 |
 | --- | --- | --- | --- |
@@ -404,8 +404,13 @@
 | `storage_path` | text | NOT NULL | 文件相对路径 |
 | `content_hash` | text | NOT NULL | |
 | `lineage` | JSONB | NOT NULL DEFAULT `{}` | 数据源、SQL、口径、样本量、耗时 |
+| `schema` | JSONB | NULL | 经校验的 Report Schema（M9 起写入；老数据为空） |
+| `version` | int | NOT NULL DEFAULT 1 | Task 内递增 |
+| `parent_report_id` | UUID | FK → `report_ref.id`, NULL, SET NULL | 上一版 |
 | `status` | text | NOT NULL, CHECK | `generated` / `failed` |
 | `created_at` | timestamptz | NOT NULL | |
+
+**索引**：`(task_id, created_at)`、`(task_id, version)`。
 
 ### 6.19 `workspace_audit`
 

@@ -270,11 +270,12 @@ Langfuse 通过 OTLP 接入属于可选验证项，不作为默认依赖。
 | M3 MCP | Hub、发现、授权、审计、Toolset 集成 | Fake Server 上完成发现/调用/拒绝/超时 |
 | M4 配置与交付 | Skills/Templates、8 个视图、Docker Compose、OTel | 本地一键启动；配置变更生效；文档与实现一致 |
 
-**进度（2026-11-28）**：M0–M8 已实现（358 项测试 + 真实进程），Spec 见 `mydocs/specs/`。
+**进度（2026-11-28）**：M0–M9 已实现（365 项测试 + 真实进程），Spec 见 `mydocs/specs/`。
 M5 补齐了 07 契约的最后三处（审批、Workspace API 与审计、`/config`）；M6 补齐 Analysis Engine 的
 5 个 `builtin_analysis` 工具；M7 用**单文件 ECharts 渲染器**替换了占位报告（内联 ECharts 5.5.0）；
-M8 增加 `schedule` 表、Cron 解析、进程内 tick、`/schedules` API 与无人值守运行语义。
-未做：ARQ worker 与 Redis 队列、OAuth 2.1、审批超时自动取消、Memory、Report Revision。
+M8 增加 `schedule` 表、Cron 解析、进程内 tick、`/schedules` API 与无人值守运行语义；
+M9 增加报告版本链（`version` / `parent_report_id` / `schema`）与结构化 diff。
+未做：ARQ worker 与 Redis 队列、OAuth 2.1、审批超时自动取消、Memory。
 `docker-compose.yml` 含 api/postgres/redis 三个服务，未包含 worker。
 
 每个里程碑结束必须更新 Spec 与本文档，记录偏差。

@@ -12,11 +12,19 @@ from uuid import UUID, uuid4
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from reportify.core.errors import NotFound, ValidationFailed
+from reportify.core.errors import Conflict, NotFound, ValidationFailed
 from reportify.db.models import AnalysisTask, DatasetSnapshot, ReportRef
 from reportify.db.repositories import reports as reports_repo
 from reportify.modules.reports import renderer as renderer_mod
-from reportify.modules.reports.schemas import ReportRefView, ReportSchema
+from reportify.modules.reports.diff import diff_schemas
+from reportify.modules.reports.schemas import (
+    ReportDiff,
+    ReportRefView,
+    ReportRevisionRead,
+    ReportSchema,
+)
+
+MAX_CHAIN = 100
 
 
 class ReportService:
@@ -63,6 +71,8 @@ class ReportService:
         path = self._write(report_id, payload)
 
         async with self._session_factory() as session:
+            parent = await reports_repo.latest_for_task(session, task_id)
+            version = 1 if parent is None else parent.version + 1
             report = await reports_repo.create_report(
                 session,
                 report_id=report_id,
@@ -72,6 +82,9 @@ class ReportService:
                 storage_path=path.name,
                 content_hash=hashlib.sha256(payload).hexdigest(),
                 lineage=lineage,
+                schema=schema.model_dump(mode="json"),
+                version=version,
+                parent_report_id=parent.id if parent is not None else None,
             )
             task = await session.get(AnalysisTask, task_id)
             if task is not None:
@@ -91,8 +104,63 @@ class ReportService:
                 "created_at": report.created_at,
                 "lineage": report.lineage,
                 "renderer": renderer_mod.RENDERER_ID,
+                "version": report.version,
+                "parent_report_id": report.parent_report_id,
             }
         )
+
+    async def revisions(self, report_id: UUID) -> list[ReportRevisionRead]:
+        """Walk ``parent_report_id`` up to the root; oldest version first."""
+        async with self._session_factory() as session:
+            report = await reports_repo.get_report(session, report_id)
+            if report is None:
+                raise NotFound(f"report not found: {report_id}")
+            chain = []
+            cursor = report
+            seen: set[UUID] = set()
+            while cursor is not None and len(chain) < MAX_CHAIN:
+                if cursor.id in seen:
+                    break
+                seen.add(cursor.id)
+                chain.append(cursor)
+                if cursor.parent_report_id is None:
+                    break
+                cursor = await reports_repo.get_report(session, cursor.parent_report_id)
+        chain.reverse()
+        return [
+            ReportRevisionRead(
+                id=item.id,
+                version=item.version,
+                title=item.title,
+                run_id=item.run_id,
+                content_hash=item.content_hash,
+                created_at=item.created_at,
+            )
+            for item in chain
+        ]
+
+    async def diff(self, report_id: UUID, *, against: UUID | None = None) -> ReportDiff:
+        """Structured schema diff against the parent (or an explicit revision)."""
+        async with self._session_factory() as session:
+            target = await reports_repo.get_report(session, report_id)
+            if target is None:
+                raise NotFound(f"report not found: {report_id}")
+            base_id = against if against is not None else target.parent_report_id
+            if base_id is None:
+                raise Conflict("report has no previous revision to compare")
+            base = await reports_repo.get_report(session, base_id)
+            if base is None:
+                raise NotFound(f"report not found: {base_id}")
+            if base.schema is None or target.schema is None:
+                raise Conflict(
+                    "stored report schema is missing; this revision cannot be diffed"
+                )
+            return diff_schemas(
+                base.schema,
+                target.schema,
+                base_version=base.version,
+                target_version=target.version,
+            )
 
     async def get(self, report_id: UUID) -> ReportRef:
         async with self._session_factory() as session:

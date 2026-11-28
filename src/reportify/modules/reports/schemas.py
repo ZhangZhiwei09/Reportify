@@ -117,4 +117,64 @@ class ReportRefView(BaseModel):
     status: str
     created_at: datetime
     renderer: str = "echarts-v1"
+    version: int = 1
+    parent_report_id: UUID | None = None
     lineage: dict[str, Any] = Field(default_factory=dict)
+
+
+class ReportRevisionRead(BaseModel):
+    """One node of a task's report version chain (M9)."""
+
+    id: UUID
+    version: int
+    title: str
+    run_id: UUID
+    content_hash: str
+    created_at: datetime
+
+
+class KpiChange(BaseModel):
+    section: str
+    label: str
+    before: str | Number | None = None
+    after: str | Number | None = None
+
+
+class ChartChange(BaseModel):
+    section: str
+    title: str
+    series_before: int
+    series_after: int
+    points_before: int
+    points_after: int
+
+
+class TableChange(BaseModel):
+    section: str
+    title: str
+    rows_before: int
+    rows_after: int
+
+
+class TextChange(BaseModel):
+    section: str
+    before: str
+    after: str
+
+
+class ReportDiff(BaseModel):
+    """Structured comparison of two validated schemas."""
+
+    base_version: int
+    target_version: int
+    identical: bool = True
+    title_before: str | None = None
+    title_after: str | None = None
+    summary_before: str | None = None
+    summary_after: str | None = None
+    sections_added: list[str] = Field(default_factory=list)
+    sections_removed: list[str] = Field(default_factory=list)
+    kpis: list[KpiChange] = Field(default_factory=list)
+    charts: list[ChartChange] = Field(default_factory=list)
+    tables: list[TableChange] = Field(default_factory=list)
+    texts: list[TextChange] = Field(default_factory=list)

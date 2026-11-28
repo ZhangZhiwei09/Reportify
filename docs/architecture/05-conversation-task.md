@@ -219,16 +219,16 @@ stateDiagram-v2
 
 ---
 
-## 8. 报告迭代（最小）
+## 8. 报告迭代
 
-本阶段不做报告版本树，只保证可追溯：
-
-1. 每次生成报告创建新的 `report_ref`。
+1. 每次生成报告创建新的 `report_ref`，带 `version`（Task 内递增）与 `parent_report_id`（上一版）。
 2. 修订通过新 Task（`parent_task_id`）或同 Task 新 Run 表达。
 3. UI 通过 `parent_task_id` 展示「基于哪一版修改」。
-4. 历史 `report_ref` 不覆盖、不删除。
+4. 历史 `report_ref` 不覆盖、不删除；旧版 HTML 仍可下载。
 
-完整的版本 diff、回滚、分支属于 §12+。
+> 实现注记（2026-11-28，M9）：`report_ref.schema` 保存经校验的 Report Schema，`GET /reports/{id}/revisions`
+> 返回版本链，`GET /reports/{id}/diff` 输出结构化差异（KPI/图表/表格/文本/章节增删）。
+> 回滚与分支仍属 §12+：回到旧版以新建 Task 重新生成为准，不提供原地写回。
 
 ---
 
