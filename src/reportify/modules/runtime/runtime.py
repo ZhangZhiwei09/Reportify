@@ -115,6 +115,7 @@ class AgentRuntime:
         self._outcomes: dict[UUID, RunOutcome] = {}
         self._tokens: dict[UUID, CancellationToken] = {}
         self._conversation_locks: dict[UUID, asyncio.Lock] = {}
+        self._approval_timers: dict[UUID, asyncio.Task[None]] = {}
 
     # ------------------------------------------------------------------ API
 
@@ -188,6 +189,7 @@ class AgentRuntime:
         token = self._tokens.get(run_id)
         if token is not None:
             token.cancel()
+        self._cancel_approval_timer(run_id)
         task = self._tasks.get(run_id)
         if task is not None:
             task.cancel()
@@ -228,6 +230,9 @@ class AgentRuntime:
         return len(stale)
 
     async def shutdown(self) -> None:
+        for task in list(self._approval_timers.values()):
+            task.cancel()
+        self._approval_timers.clear()
         for task in list(self._tasks.values()):
             task.cancel()
         if self._tasks:
@@ -650,7 +655,92 @@ class AgentRuntime:
             task_id=task.id,
             run_id=run_id,
         )
+        self._start_approval_timer(run_id)
         return RunOutcome(run_id=run_id, status="waiting_approval", usage=usage)
+
+    # ---------------------------------------------------------- approval expiry
+
+    def _start_approval_timer(self, run_id: UUID) -> None:
+        """Parked runs must not wait forever (M11)."""
+        seconds = self._settings.approval_timeout_seconds
+        if seconds <= 0:
+            return
+        self._cancel_approval_timer(run_id)
+        self._approval_timers[run_id] = asyncio.create_task(
+            self._expire_approvals(run_id, seconds),
+            name=f"approval-{run_id}",
+        )
+
+    def _cancel_approval_timer(self, run_id: UUID) -> None:
+        task = self._approval_timers.pop(run_id, None)
+        # The expiry task itself may call this through decide(); do not cancel
+        # the very task that is running.
+        if task is not None and task is not asyncio.current_task():
+            task.cancel()
+
+    async def _expire_approvals(self, run_id: UUID, seconds: float) -> None:
+        try:
+            await asyncio.sleep(seconds)
+        except asyncio.CancelledError:
+            return
+        try:
+            await self._deny_expired(run_id)
+        except asyncio.CancelledError:
+            raise
+        except Exception:  # noqa: BLE001 - a timer must not crash the loop
+            logger.exception(
+                "failed to expire approvals",
+                extra={"run_id": str(run_id)},
+            )
+
+    async def _deny_expired(self, run_id: UUID) -> None:
+        async with self._session_factory() as session:
+            run = await tasks_repo.get_run(session, run_id)
+            if run is None or run.status != "waiting_approval":
+                return
+            task = await tasks_repo.get_task(session, run.task_id)
+            pending = [
+                item.get("approval_id")
+                for item in (run.pending_approvals or [])
+                if item.get("decision") == "pending"
+            ]
+            approval_names = [
+                item.get("tool_name")
+                for item in (run.pending_approvals or [])
+                if item.get("decision") == "pending"
+            ]
+            conversation_id = run.conversation_id
+            task_id = run.task_id
+        approval_ids = [item for item in pending if item]
+        if not approval_ids or task is None:
+            return
+
+        for approval_id in approval_ids:
+            try:
+                await self.decide(run_id, approval_id, approved=False)
+            except (Conflict, NotFound):
+                # Someone decided it first; the run is already moving.
+                continue
+        await self._append_message(
+            conversation_id,
+            role="system",
+            message_type="system_event",
+            content=(
+                f"审批超时（{self._settings.approval_timeout_seconds}s），"
+                "已自动拒绝：" + ", ".join(name for name in approval_names if name)
+            ),
+            payload={
+                "code": "approval_timeout",
+                "approval_ids": approval_ids,
+                "run_id": str(run_id),
+            },
+            task_id=task_id,
+            run_id=run_id,
+        )
+        logger.warning(
+            "approvals expired and were denied",
+            extra={"run_id": str(run_id), "count": len(approval_ids)},
+        )
 
     async def get_pending_approvals(self, run_id: UUID) -> list[dict[str, Any]]:
         async with self._session_factory() as session:
@@ -691,6 +781,7 @@ class AgentRuntime:
                 "approvals": approvals,
             }
 
+        self._cancel_approval_timer(run_id)
         resume = ResumeState(message_history=history, approvals=approvals)
         self._outcomes.pop(run_id, None)
         self._tasks[run_id] = asyncio.create_task(

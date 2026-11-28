@@ -51,6 +51,8 @@ class Settings(BaseSettings):
     run_tool_calls_limit: int = 25
     run_total_tokens_limit: int = 300_000
     run_tool_timeout_seconds: int = 120
+    # A parked approval must not wait forever; 0 disables expiry (M11).
+    approval_timeout_seconds: int = 900
     max_concurrent_runs: int = 4
     instructions_char_budget: int = 28_000
     max_prompt_chars: int = 20_000

@@ -380,7 +380,7 @@ mcp_toolsets = [
 | 无可用工具 | Agent 只能空谈 | 指令中明确「无工具时说明限制」；事件告警 |
 | 工具全部失败 | 循环重试 | 循环检测 + 预算上限 |
 | 输出校验失败 | `UnexpectedModelBehavior` | 保留最后一次输出摘要；提示用户缩小范围 |
-| 审批无人处理 | run 挂起 | 任务 `waiting_approval`；超时自动取消 |
+| 审批无人处理 | run 挂起 | 到期自动拒绝并续跑（`approval_timeout_seconds`，默认 900s） |
 | 历史过大 | 上下文超限 | 裁剪后重试；仍失败则新建任务 |
 | DeepSeek 返回空 JSON | content 全空格 | 视为校验失败并重试，不当作成功 |
 | SSE 客户端断开 | UI 无实时事件 | 不影响执行；重连后按 sequence 重放 |

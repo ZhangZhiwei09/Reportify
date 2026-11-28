@@ -72,4 +72,7 @@ async def config(
             "enabled": settings.memory_enabled,
             "max_items": settings.memory_max_items,
         },
+        "approvals": {
+            "timeout_seconds": settings.approval_timeout_seconds,
+        },
     }

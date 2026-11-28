@@ -249,7 +249,12 @@ stateDiagram-v2
 > 实现注记（2026-11-22，M5）：审批挂起时 `task_run.status='waiting_approval'`，待批项写入
 > `task_run.pending_approvals`（同时发 `approval_required` 事件），run 的 `history_blob` 已保存；
 > 全部待批项决策后**同一个 run** 用 `DeferredToolResults` 续跑，事件序列继续递增，不新建 run。
-> 审批前工具不会执行；拒绝时工具跳过并记 `rejected` 审计。审批超时自动取消（24h）未实现。
+> 审批前工具不会执行；拒绝时工具跳过并记 `rejected` 审计。
+>
+> 实现注记（2026-11-28，M11）：挂起的审批由 `approval_timeout_seconds`（默认 900s，0 关闭）计时；
+> 到期后**自动拒绝**全部待批项并续跑同一 run（而非直接取消），工具仍不执行、审计为
+> `rejected/approval_rejected`，会话中留一条「审批超时」系统消息。进程重启后无法恢复内存中的
+> 停泊状态，由启动时的 `recover_stale_runs` 判定为 `failed`。
 
 ---
 
@@ -277,7 +282,7 @@ UI 不直接写入 `task_run` 或 `run_event`；所有状态变更经服务层�
 | 重复发送 | 两条相同用户消息 | 客户端幂等键；服务端去重窗口 |
 | 序列冲突 | 唯一约束失败 | 重试分配 sequence |
 | 任务无 Run | `created` 悬挂 | 超时任务清理，标记 failed |
-| 审批超时 | `waiting_approval` 长期挂起 | 默认 24h 自动取消并通知 |
+| 审批超时 | `waiting_approval` 长期挂起 | 到期自动拒绝并续跑（`approval_timeout_seconds`，M11） |
 | 多标签页并发 | 同时发起两个 Run | 第二个 409；UI 提示 |
 | 报告引用丢失 | `report_ref` 文件不存在 | 标记 failed；可用 lineage 重生成 |
 
