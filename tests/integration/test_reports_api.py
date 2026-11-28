@@ -77,15 +77,19 @@ def test_generate_report_through_a_run(client_factory, seeded_snapshot, database
     downloaded = client.get(f"/api/v1/reports/{report['id']}/download")
     assert downloaded.status_code == 200
     body = downloaded.text
-    assert 'name="reportify-renderer" content="placeholder-v1"' in body
-    assert "占位渲染（非最终）" in body
+    assert 'name="reportify-renderer" content="echarts-v1"' in body
+    assert "echarts.init" in body
+    assert "data-chart=" in body
+    # the report is a standalone artifact: its own CSP allows inline script
+    csp = downloaded.headers["Content-Security-Policy"]
+    assert "script-src 'unsafe-inline'" in csp
     assert snapshot_id in body
 
     listed = client.get("/api/v1/reports").json()
     assert any(item["id"] == str(report["id"]) for item in listed)
 
     detail = client.get(f"/api/v1/reports/{report['id']}").json()
-    assert detail["renderer"] == "placeholder-v1"
+    assert detail["renderer"] == "echarts-v1"
     assert detail["lineage"]["snapshot_ids"] == [snapshot_id]
 
     messages = client.get(f"/api/v1/conversations/{conversation_id}/messages").json()["items"]

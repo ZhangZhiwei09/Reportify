@@ -272,6 +272,11 @@ static/
 - 响应式布局遵循既有设计 demo 的断点与配色变量。
 - 报告页面自带 ECharts 脚本与数据，不依赖管理台运行时。
 
+> 实现注记（2026-11-28，M7）：报告是**单文件 HTML**，内联 ECharts 5.5.0（vendored，Apache-2.0），
+> 图表用 `echarts.init` 渲染，并在 `<details>` 里保留表格数据供无脚本环境查看。为支持内联，
+> `GET /api/v1/reports/{id}/download` 使用报告专属 CSP（`script-src 'unsafe-inline'`），
+> 管理台页面仍保持严格 CSP。报告体积约 1 MB（ECharts 内联所致）。
+
 ---
 
 ## 10. Failure Modes

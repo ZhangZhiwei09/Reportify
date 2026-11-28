@@ -405,13 +405,13 @@ async def generate_report(
     )
     return ToolResult(
         ok=True,
-        summary=f"报告已生成：{ref.title}（report_ref {ref.id}，占位渲染）。",
+        summary=f"报告已生成：{ref.title}（report_ref {ref.id}，单文件 HTML）。",
         data={
             "report_ref_id": str(ref.id),
             "title": ref.title,
             "renderer": ref.renderer,
             "storage_path": ref.storage_path,
-            "note": "placeholder renderer; not a final artifact",
+            "note": "self-contained HTML report with inline ECharts",
         },
         lineage=None,
     )

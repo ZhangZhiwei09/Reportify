@@ -522,7 +522,7 @@ class AgentRuntime:
                 role="system",
                 message_type="report_event",
                 content="已生成报告。",
-                payload={"report_ref_id": str(report_id), "renderer": "placeholder-v1"},
+                payload={"report_ref_id": str(report_id), "renderer": "echarts-v1"},
                 task_id=task.id,
                 run_id=run_id,
             )

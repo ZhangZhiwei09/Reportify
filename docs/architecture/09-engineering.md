@@ -269,12 +269,11 @@ Langfuse 通过 OTLP 接入属于可选验证项，不作为默认依赖。
 | M3 MCP | Hub、发现、授权、审计、Toolset 集成 | Fake Server 上完成发现/调用/拒绝/超时 |
 | M4 配置与交付 | Skills/Templates、8 个视图、Docker Compose、OTel | 本地一键启动；配置变更生效；文档与实现一致 |
 
-**进度（2026-11-28）**：M0–M6 已实现（304 项测试 + 真实进程），Spec 见 `mydocs/specs/`。
-M5 补齐了 07 契约的最后三处：工具审批（`waiting_approval` 同 run 续跑）、Workspace 文件 API 与
-`workspace_audit` 落库、`GET /config`。M6 补齐 Analysis Engine 的 5 个 `builtin_analysis` 工具
-（趋势/分布/周期对比/异常/相关），统计全部由 pandas 完成。
-未做：ARQ worker 与定时任务配置、报告正式渲染器（ECharts 需先解决离线依赖）、OAuth 2.1、
-审批超时自动取消、Memory。`docker-compose.yml` 含 api/postgres/redis 三个服务，未包含 worker。
+**进度（2026-11-28）**：M0–M7 已实现（318 项测试 + 真实进程），Spec 见 `mydocs/specs/`。
+M5 补齐了 07 契约的最后三处（审批、Workspace API 与审计、`/config`）；M6 补齐 Analysis Engine 的
+5 个 `builtin_analysis` 工具；M7 用**单文件 ECharts 渲染器**替换了占位报告（内联 ECharts 5.5.0）。
+未做：ARQ worker 与定时任务配置、OAuth 2.1、审批超时自动取消、Memory、Report Revision。
+`docker-compose.yml` 含 api/postgres/redis 三个服务，未包含 worker。
 
 每个里程碑结束必须更新 Spec 与本文档，记录偏差。
 
@@ -306,5 +305,6 @@ uv run ruff check .
 
 1. `asyncpg` 与 `psycopg 3` 的最终选择（影响取消与超时语义）。
 2. 测试容器在 Windows 本地开发环境的可用性；是否统一走 Compose。
-3. 报告渲染器由 §12+ 实现期间，M2 的占位产物如何标记为「非最终」。
+3. ~~报告渲染器由 §12+ 实现期间，M2 的占位产物如何标记为「非最终」。~~ **已解决（M7）**：占位渲染已下线，
+   报告为单文件 HTML、内联 ECharts 5.5.0；下载响应对该文件使用专属 CSP。
 4. 是否需要为 `workspace/` 提供 `examples/` 初始化命令。

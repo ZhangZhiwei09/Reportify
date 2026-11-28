@@ -1,4 +1,4 @@
-"""Report generation service (placeholder renderer)."""
+"""Report generation service (self-contained ECharts report)."""
 
 from __future__ import annotations
 
@@ -50,7 +50,7 @@ class ReportService:
         report_id = uuid4()
         generated_at = datetime.now(UTC)
         lineage = self._build_lineage(schema, snapshots, generated_at)
-        html = renderer_mod.render_placeholder(
+        html = renderer_mod.render_report(
             report_id=str(report_id),
             title=schema.title,
             summary=schema.summary,

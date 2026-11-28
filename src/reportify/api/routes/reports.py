@@ -18,6 +18,15 @@ router = APIRouter(
     dependencies=[Depends(require_auth)],
 )
 
+REPORT_CONTENT_SECURITY_POLICY = (
+    "default-src 'none'; "
+    "img-src data:; "
+    "style-src 'unsafe-inline'; "
+    "script-src 'unsafe-inline'; "
+    "base-uri 'none'; "
+    "form-action 'none'"
+)
+
 
 @router.get("", response_model=list[ReportRefView])
 async def list_reports(
@@ -49,5 +58,11 @@ async def download_report(
         path,
         media_type="text/html; charset=utf-8",
         filename=path.name,
-        headers={"Cache-Control": "no-store"},
+        headers={
+            "Cache-Control": "no-store",
+            # A report is a standalone artifact with inline ECharts; the console
+            # keeps its strict CSP, only this file gets its own policy.
+            "Content-Security-Policy": REPORT_CONTENT_SECURITY_POLICY,
+            "X-Content-Type-Options": "nosniff",
+        },
     )

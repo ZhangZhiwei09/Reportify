@@ -106,7 +106,7 @@ BUILTIN_SPECS: tuple[ToolSpec, ...] = (
         risk_level="write",
         display_name="生成报告",
         description=(
-            "提交经校验的 ReportSchema 生成本地静态 HTML 报告（占位渲染）。"
+            "提交经校验的 ReportSchema 生成单文件静态 HTML 报告（内联 ECharts）。"
             "每个 run 只能调用一次；指标必须引用已有的 dataset_snapshot。"
         ),
         arguments={"report": "object"},

@@ -1,7 +1,7 @@
 """Report Schema — the only thing the model may emit for a report.
 
-The renderer is a placeholder in M2; the *contract* is what matters: every number
-must point at a ``dataset_snapshot`` (03 §5, 08 §6.18).
+M7 renders a self-contained HTML file with inline ECharts; the *contract* stays
+what matters: every number must point at a ``dataset_snapshot`` (03 §5, 08 §6.18).
 """
 
 from __future__ import annotations
@@ -116,5 +116,5 @@ class ReportRefView(BaseModel):
     content_hash: str
     status: str
     created_at: datetime
-    renderer: str = "placeholder-v1"
+    renderer: str = "echarts-v1"
     lineage: dict[str, Any] = Field(default_factory=dict)
