@@ -1,6 +1,7 @@
 # Reportify
 
-通用型 AI 数据分析与可视化 Agent 平台。当前为 **M0 工程骨架**：配置、日志、数据库、迁移、健康检查与 Workspace Loader。
+通用型 AI 数据分析与可视化 Agent 平台。M0–M8 已实现：数据层、Agent Runtime、MCP、Workspace/Skills/Templates、
+分析引擎、单文件 ECharts 报告与定时任务（Cron + 进程内 tick）。
 
 ## 快速开始
 

@@ -106,7 +106,9 @@ def test_config_endpoint_hides_secrets(client_factory) -> None:
 
     assert payload["version"]
     assert payload["features"]["approvals"] is True
-    assert payload["features"]["scheduler"] is False
+    assert payload["features"]["scheduler"] is True
+    # The tick loop is off in tests, but the capability itself is present.
+    assert payload["scheduler"]["loop_enabled"] is False
     assert "limits" in payload and payload["limits"]["run_request_limit"] > 0
 
     body = response.text

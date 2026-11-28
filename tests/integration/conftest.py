@@ -62,7 +62,8 @@ def prepared_database():
                         "TRUNCATE conversation, analysis_task, task_run, run_event, "
                         "message, tool_call_audit, report_ref, tool_definition, "
                         "tool_grant, dataset_snapshot, table_metadata, column_metadata, "
-                        "data_source, secret, workspace_audit RESTART IDENTITY CASCADE"
+                        "data_source, secret, workspace_audit, schedule "
+                        "RESTART IDENTITY CASCADE"
                     )
                 )
         finally:
@@ -96,6 +97,8 @@ def settings(tmp_path) -> Settings:
         secret_key="test-secret",
         workspace_dir=Path("examples/workspace"),
         reports_dir=tmp_path / "reports",
+        # The tick loop is exercised explicitly; a live loop would race the tests.
+        scheduler_enabled=False,
     )
 
 
@@ -228,9 +231,9 @@ def client_factory(settings: Settings):
     """Build API clients driven by a scripted model (never the real LLM)."""
     clients: list[TestClient] = []
 
-    def _factory(steps: list[dict] | None = None, *, model=None) -> TestClient:
+    def _factory(steps: list[dict] | None = None, *, model=None, settings_override=None):
         resolved = model if model is not None else scripted_model(steps or [])
-        app = create_app(settings, model=resolved)
+        app = create_app(settings_override or settings, model=resolved)
         test_client = TestClient(app)
         test_client.__enter__()
         clients.append(test_client)

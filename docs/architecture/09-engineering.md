@@ -106,7 +106,7 @@ Reportify/
 | MCP | 随 PydanticAI 安装的 FastMCP client | 不额外引入官方 SDK |
 | 数据 | pandas | ≤100 万行 |
 | 模板 | Jinja2 | 自动转义 |
-| 队列 | ARQ + redis | 定时/长任务 |
+| 队列 | ARQ + redis（预留） | 定时触发改用 `schedule` 行锁 + 进程内 tick（01 D-08） |
 | 加密 | cryptography | AES-GCM |
 | HTTP | httpx2 | 与 MCP/FastMCP 栈一致 |
 | 可观测 | OpenTelemetry SDK（可选 OTLP） | Logfire 可选，不作为依赖 |
@@ -167,7 +167,8 @@ class Settings(BaseSettings):
 - Alembic 迁移放在 `src/reportify/db/migrations`；启动不自动迁移，部署显式执行。
 - 命名约定：`ix_`、`uq_`、`fk_`、`ck_` 前缀。
 - 内置工具在启动时幂等 upsert 到 `tool_definition`。
-- 清理任务（事件/审计/快照）由 ARQ 定时执行；MVP 可先提供手动命令。
+- 清理任务（事件/审计/快照）可挂到 `schedule` 表上由 tick 触发；MVP 先提供手动命令。
+- 定时任务表 `schedule` 的 tick 在 API 进程内运行，`FOR UPDATE SKIP LOCKED` 保证多实例不重复认领。
 - 备份：PostgreSQL 逻辑备份 + `workspace/` 与 `reports/` 目录。
 
 ---
@@ -208,8 +209,8 @@ class Settings(BaseSettings):
 
 ```text
 docker compose services:
-  api       -> uvicorn reportify.main:app
-  worker    -> arq reportify.workers.arq_settings.WorkerSettings
+  api       -> uvicorn reportify.main:app     # 含进程内调度 tick
+  worker    -> arq ...                        # 预留，未启用（01 D-08）
   postgres  -> postgres:16
   redis     -> redis:7
 volumes:
@@ -269,10 +270,11 @@ Langfuse 通过 OTLP 接入属于可选验证项，不作为默认依赖。
 | M3 MCP | Hub、发现、授权、审计、Toolset 集成 | Fake Server 上完成发现/调用/拒绝/超时 |
 | M4 配置与交付 | Skills/Templates、8 个视图、Docker Compose、OTel | 本地一键启动；配置变更生效；文档与实现一致 |
 
-**进度（2026-11-28）**：M0–M7 已实现（318 项测试 + 真实进程），Spec 见 `mydocs/specs/`。
+**进度（2026-11-28）**：M0–M8 已实现（358 项测试 + 真实进程），Spec 见 `mydocs/specs/`。
 M5 补齐了 07 契约的最后三处（审批、Workspace API 与审计、`/config`）；M6 补齐 Analysis Engine 的
-5 个 `builtin_analysis` 工具；M7 用**单文件 ECharts 渲染器**替换了占位报告（内联 ECharts 5.5.0）。
-未做：ARQ worker 与定时任务配置、OAuth 2.1、审批超时自动取消、Memory、Report Revision。
+5 个 `builtin_analysis` 工具；M7 用**单文件 ECharts 渲染器**替换了占位报告（内联 ECharts 5.5.0）；
+M8 增加 `schedule` 表、Cron 解析、进程内 tick、`/schedules` API 与无人值守运行语义。
+未做：ARQ worker 与 Redis 队列、OAuth 2.1、审批超时自动取消、Memory、Report Revision。
 `docker-compose.yml` 含 api/postgres/redis 三个服务，未包含 worker。
 
 每个里程碑结束必须更新 Spec 与本文档，记录偏差。
@@ -286,8 +288,7 @@ uv sync
 cp .env.example .env
 docker compose up -d postgres redis
 uv run alembic upgrade head
-uv run uvicorn reportify.main:app --reload
-uv run arq reportify.workers.arq_settings.WorkerSettings
+uv run uvicorn reportify.main:app --reload   # 调度 tick 随进程启动（REPORTIFY_SCHEDULER_ENABLED）
 uv run pytest
 uv run ruff check .
 ```

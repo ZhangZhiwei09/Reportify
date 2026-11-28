@@ -19,6 +19,7 @@ from reportify.modules.mcp.runtime import MCPRuntime
 from reportify.modules.reports.service import ReportService
 from reportify.modules.reports.templates import ReportTemplateService
 from reportify.modules.runtime.runtime import AgentRuntime
+from reportify.modules.scheduler.service import SchedulerService
 from reportify.modules.security.secrets import SecretService
 from reportify.modules.skills.service import SkillService
 from reportify.modules.tools.registry import ToolRegistry
@@ -67,6 +68,10 @@ def get_runtime(request: Request) -> AgentRuntime:
 
 def get_event_publisher(request: Request) -> EventPublisher:
     return request.app.state.event_publisher
+
+
+def get_scheduler(request: Request) -> SchedulerService:
+    return request.app.state.scheduler
 
 
 def get_tool_registry(request: Request) -> ToolRegistry:

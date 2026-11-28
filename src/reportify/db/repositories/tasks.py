@@ -11,7 +11,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from reportify.core.errors import ConversationBusy
+from reportify.core.errors import Conflict, ConversationBusy
 from reportify.db.models import AnalysisTask, TaskRun
 
 ACTIVE_RUN_STATUSES = ("queued", "running", "waiting_approval")
@@ -70,6 +70,8 @@ async def create_run(
     trigger: str = "interactive",
     limits: dict[str, Any] | None = None,
     model_settings: dict[str, Any] | None = None,
+    schedule_id: UUID | None = None,
+    idempotency_key: str | None = None,
 ) -> TaskRun:
     run = TaskRun(
         task_id=task_id,
@@ -79,18 +81,36 @@ async def create_run(
         model_name=model_name,
         limits=limits or {},
         model_settings=model_settings or {},
+        schedule_id=schedule_id,
+        idempotency_key=idempotency_key,
     )
     session.add(run)
     try:
         await session.commit()
     except IntegrityError as exc:
-        # The partial unique index guarantees one active run per conversation.
         await session.rollback()
+        if idempotency_key is not None:
+            existing = await run_by_idempotency_key(session, idempotency_key)
+            if existing is not None:
+                raise Conflict(
+                    f"idempotency key already used: {idempotency_key}"
+                ) from exc
+        # The partial unique index guarantees one active run per conversation.
         raise ConversationBusy(
             f"conversation already has an active run: {conversation_id}"
         ) from exc
     await session.refresh(run)
     return run
+
+
+async def run_by_idempotency_key(
+    session: AsyncSession,
+    idempotency_key: str,
+) -> TaskRun | None:
+    """Look up a previously created run for an ``Idempotency-Key`` retry."""
+    return await session.scalar(
+        select(TaskRun).where(TaskRun.idempotency_key == idempotency_key)
+    )
 
 
 async def get_run(session: AsyncSession, run_id: UUID) -> TaskRun | None:

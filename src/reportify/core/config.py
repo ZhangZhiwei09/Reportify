@@ -62,6 +62,13 @@ class Settings(BaseSettings):
     mcp_read_timeout_seconds: float = 60.0
     mcp_probe_timeout_seconds: float = 5.0
 
+    # Scheduler (M8). The tick loop claims due rows with SKIP LOCKED, so it is
+    # safe to leave enabled on every instance; tests switch it off to stay
+    # deterministic.
+    scheduler_enabled: bool = True
+    scheduler_tick_seconds: float = 15.0
+    scheduler_batch_size: int = 10
+
     # Observability. Unset means tracing is a no-op (09 §10).
     otel_exporter_otlp_endpoint: str | None = None
 

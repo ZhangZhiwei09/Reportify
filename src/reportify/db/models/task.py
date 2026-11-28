@@ -106,6 +106,14 @@ class TaskRun(Base, TimestampMixin):
         CheckConstraint(f"trigger IN ({RUN_TRIGGERS})", name="trigger_valid"),
         Index("ix_task_run_task_id_created_at", "task_id", "created_at"),
         Index("ix_task_run_conversation_id_status", "conversation_id", "status"),
+        Index("ix_task_run_schedule_id", "schedule_id"),
+        # 07 §5: a retried creation with the same key must not start a second run.
+        Index(
+            "uq_task_run_idempotency_key",
+            "idempotency_key",
+            unique=True,
+            postgresql_where=text("idempotency_key IS NOT NULL"),
+        ),
     )
 
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
@@ -123,6 +131,11 @@ class TaskRun(Base, TimestampMixin):
         default="interactive",
         server_default="interactive",
     )
+    schedule_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("schedule.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    idempotency_key: Mapped[str | None] = mapped_column(String(160), nullable=True)
     status: Mapped[str] = mapped_column(
         String(24),
         nullable=False,

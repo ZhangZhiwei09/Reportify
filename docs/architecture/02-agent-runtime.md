@@ -17,7 +17,7 @@ Runtime 是**编排者**，不是计算者：它不实现统计、不生成 HTML
 
 - 不设计 Memory 检索与上下文压缩算法（§12+），只保留接口。
 - 不设计 Analysis Engine / Report Engine 内部实现，只依赖其工具契约。
-- 不设计定时任务配置（§12+），只支持被 ARQ 触发。
+- 不设计 Cron 配置语法本身（M8 已实现于 `modules/scheduler`），只约定 `trigger='scheduled'` 的运行语义。
 - 不实现多 Agent 协作、规划器/执行器双阶段架构。
 
 ---
@@ -172,9 +172,12 @@ class RunRequest:
     template_name: str | None = None
     model_overrides: dict[str, Any] = field(default_factory=dict)
     idempotency_key: str | None = None
+    schedule_id: UUID | None = None
 ```
 
-`idempotency_key` 用于定时任务重复触发：相同 key 已成功则直接返回原 `run_id`。
+`idempotency_key` 用于重复触发：相同 key 已存在则直接返回原 `run_id`（`task_run.idempotency_key` 唯一部分索引兜底）。
+`trigger='scheduled'` 的运行是**无人值守**的：需审批与 `destructive` 工具在请求前即被过滤（第 1 层），
+`plan` 事件带 `unattended=true` 与 `hidden_tools`，因此不会停在 `waiting_approval`。
 
 ---
 

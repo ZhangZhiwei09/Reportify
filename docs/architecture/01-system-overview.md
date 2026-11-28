@@ -59,7 +59,7 @@
 | 13 | Analysis Engine | **最小契约** | 工具输入/输出与 lineage；算法 §12+ |
 | 14 | Report Engine | **最小契约** | Report Schema 与渲染边界；实现 §12+ |
 | 15 | Report Revision | **最小引用** | 只保留 `report_ref` 与 `parent_task_id` |
-| 16 | Scheduler | **边界说明** | ARQ 只负责触发；Cron 配置 §12+ |
+| 16 | Scheduler | **已实现（M8）** | `schedule` 表 + 进程内 tick，`FOR UPDATE SKIP LOCKED` 认领；ARQ 未启用（D-08） |
 | 17 | Observability | **接口** | OTel 埋点与事件字段；后端可替换 |
 
 ---
@@ -82,19 +82,19 @@ flowchart LR
     API --> PG[("Reportify PostgreSQL")]
     RT --> PG
     API --> REDIS[("Redis")]
-    WORKER["ARQ Worker"] --> RT
+    WORKER["ARQ Worker<br/>（预留，未启用）"] --> RT
     WORKER --> PG
     WORKER --> REDIS
     WS --> FILES[("workspace/ 文件")]
-    RT --> REPORT["Report Schema → HTML<br/>（§12+ 渲染器）"]
+    RT --> REPORT["Report Schema → HTML<br/>（echarts-v1 单文件）"]
 ```
 
 **部署形态**：
 
 | 组件 | 形态 | 说明 |
 | --- | --- | --- |
-| `api` | FastAPI + Uvicorn | 管理台、API、交互式 run 与 SSE |
-| `worker` | ARQ Worker | 定时触发、长任务；与 API 共用领域代码 |
+| `api` | FastAPI + Uvicorn | 管理台、API、交互式 run、SSE 与调度 tick |
+| `worker` | ARQ Worker（预留） | 尚未启用；定时触发目前由 API 进程内 tick 承担（D-08） |
 | `postgres` | 单实例 | 系统元数据、会话、任务、审计 |
 | `redis` | 单实例 | 队列、事件 fan-out、短期缓存 |
 | `workspace` | 挂载卷 | 配置文件、Skills、模板、报告产物 |
@@ -189,6 +189,7 @@ sequenceDiagram
 | D-05 | 会话持久化 | 应用消息表 + PydanticAI `ModelMessage` JSON |
 | D-06 | Workspace | 文件为源，DB 只存索引与审计 |
 | D-07 | 报告契约 | 只定义 Template → Report Schema 与 lineage |
+| D-08 | 定时触发载体 | 进程内 asyncio tick + `schedule` 行锁（`SKIP LOCKED`），多实例仍不重复；ARQ 仅作扩展预留 |
 
 ---
 
@@ -213,11 +214,12 @@ sequenceDiagram
 - 单 Agent Runtime、会话、多任务、SSE 执行过程。
 - Streamable HTTP MCP、工具授权与审计。
 - Workspace / Skills / Templates 文件化加载。
+- 定时任务：`schedule` 表、Cron 解析、tick 派发与 `/schedules` API。
 - 5 个既有视图 + MCP / Skills / Templates 3 个配置视图。
 
 **不包含**：
 
-- Memory、上下文自动压缩、报告版本树、定时任务配置 UI（§12+）。
+- Memory、上下文自动压缩、报告版本树、ARQ 队列与通知渠道（§12+）。
 - 脚本沙箱、多数据源 Connector、多用户与 RBAC。
 - 报告内追问、在线筛选、下钻。
 

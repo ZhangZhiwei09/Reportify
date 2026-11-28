@@ -22,6 +22,7 @@ from reportify.api.routes.pages import router as pages_router
 from reportify.api.routes.report_templates import router as report_templates_router
 from reportify.api.routes.reports import router as reports_router
 from reportify.api.routes.runs import router as runs_router
+from reportify.api.routes.schedules import router as schedules_router
 from reportify.api.routes.skills import router as skills_router
 from reportify.api.routes.system import router as system_router
 from reportify.api.routes.tasks import router as tasks_router
@@ -46,6 +47,7 @@ from reportify.modules.reports.templates import ReportTemplateService
 from reportify.modules.runtime.agent_factory import build_agent, build_model
 from reportify.modules.runtime.context import ContextAssembler
 from reportify.modules.runtime.runtime import AgentRuntime
+from reportify.modules.scheduler.service import SchedulerService
 from reportify.modules.security.secrets import SecretService
 from reportify.modules.skills.service import SkillService
 from reportify.modules.tools.registry import ToolRegistry
@@ -132,6 +134,13 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     app.state.profiling_service = ProfilingService(session_factory, connector_registry)
     app.state.workspace = workspace_loader.load()
     app.state.runtime = runtime
+    app.state.scheduler = SchedulerService(
+        session_factory,
+        runtime,
+        enabled=settings.scheduler_enabled,
+        tick_seconds=settings.scheduler_tick_seconds,
+        batch_size=settings.scheduler_batch_size,
+    )
     app.state.mcp_hub = mcp_hub
     app.state.mcp_runtime = mcp_runtime
     app.state.skill_service = SkillService(workspace_loader)
@@ -143,8 +152,10 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         recovered = await runtime.recover_stale_runs()
         if recovered:
             logger.warning("recovered %s stale runs", recovered)
+        await app.state.scheduler.start()
         yield
     finally:
+        await app.state.scheduler.stop()
         await runtime.shutdown()
         await connector_registry.close_all()
         await engine.dispose()
@@ -187,6 +198,7 @@ def create_app(settings: Settings | None = None, *, model: Model | None = None) 
     app.include_router(conversations_router)
     app.include_router(tasks_router)
     app.include_router(runs_router)
+    app.include_router(schedules_router)
     app.include_router(reports_router)
     app.include_router(mcp_router)
     app.include_router(skills_router)

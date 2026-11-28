@@ -76,21 +76,22 @@ Reportify 是一个通用型 AI 数据分析与可视化 Agent 平台：用户�
 
 | ID | 决策 | 结论 |
 | --- | --- | --- |
-| D-01 | 交互式执行 | FastAPI 内异步执行 + SSE；ARQ 只跑定时/长任务 |
+| D-01 | 交互式执行 | FastAPI 内异步执行 + SSE；定时触发同进程 tick（D-08），ARQ 预留 |
 | D-02 | Agent 编排 | 单 Agent + 工具循环；计划结构化记录，不强制两阶段 |
 | D-03 | 工具授权 | 过滤工具集 + 写操作审批 + 执行前二次校验 |
 | D-04 | MCP 连接 | Agent 面 per-run 懒连接；管理面短连接 |
 | D-05 | 会话持久化 | 应用消息表 + PydanticAI 历史 JSON |
 | D-06 | Workspace | 文件为源；DB 只存索引与审计 |
-| D-07 | 报告 | 只定义 Template → Report Schema 与 lineage；渲染器 §12+ |
+| D-07 | 报告 | Template → Report Schema → 单文件 ECharts 渲染（`echarts-v1`） |
+| D-08 | 定时触发 | `schedule` 表 + `FOR UPDATE SKIP LOCKED` 认领的进程内 tick |
 
 ---
 
 ## 6. 范围声明
 
-**已设计**：Data Connector、MCP Hub、MCP Client Runtime、Tool Registry、Agent Workspace、Skills、Report Template、Agent Runtime、Conversation / Analysis Task，以及数据模型与工程方案。
+**已实现（M0–M8）**：Data Connector、MCP Hub、MCP Client Runtime、Tool Registry、Agent Workspace、Skills、Report Template、Agent Runtime、Conversation / Analysis Task、Analysis Engine、Report Renderer、Scheduler，以及数据模型与工程方案。
 
-**仅接口**：Memory、Context 压缩、Data Profiling、Analysis Engine、Report Engine、Report Revision、Scheduler。
+**仅接口**：Memory、Context 压缩、Report Revision、OAuth 2.1。
 
 **明确不做**：多租户、RBAC、微服务、React 前端、LLM 直接生成 HTML/SQL/JS、脚本沙箱。
 

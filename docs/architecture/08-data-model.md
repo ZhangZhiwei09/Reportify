@@ -1,7 +1,7 @@
 # 08 · 数据模型
 
 > 范围：§1–§11 的持久化模型与存储分工。  
-> 不在范围：Memory、Context 压缩、Report Version、Scheduler 任务表（§12+，另开 Spec）。  
+> 不在范围：Memory、Context 压缩、Report Version（§12+，另开 Spec）。  
 > 约定：本文只定义结构与约束，不包含 DDL、SQLAlchemy 模型或迁移脚本。
 
 ---
@@ -22,7 +22,7 @@
 
 - 不设计 Memory / Embedding / 长期记忆表（§12+）。
 - 不设计 Report Version / Revision 全量模型（仅保留 `report_ref` 最小引用）。
-- 不设计 Scheduler/Cron 任务表（ARQ 自有队列；定时配置另开 Spec）。
+- 不设计 Scheduler 的通知、依赖与补跑策略（`schedule` 表本身见 §6.20）。
 - 不设计多租户隔离字段（`tenant_id`、行级安全）。
 - 不规定具体 SQL DDL、索引语句与 Alembic 版本。
 
@@ -245,6 +245,8 @@
 | `limits` | JSONB | NOT NULL DEFAULT `{}` | request/tool/token/cost 限制 |
 | `usage` | JSONB | NOT NULL DEFAULT `{}` | 实际用量（请求、工具、token、成本） |
 | `pending_approvals` | JSONB | NOT NULL DEFAULT `[]` | 待审批工具调用；每项含 `approval_id`、`tool_call_id`、`tool_name`、`args_redacted`、`risk`、`decision` |
+| `schedule_id` | UUID | FK → `schedule.id`, NULL, ON DELETE SET NULL | 由哪个定时任务派发（M8） |
+| `idempotency_key` | text | NULL, UNIQUE（部分索引，仅非空） | 创建幂等键；定时为 `schedule:<id>:<scheduled_for>` |
 | `history_blob` | JSONB | NULL | PydanticAI `ModelMessagesTypeAdapter` 结果 |
 | `error` | JSONB | NULL | |
 | `cancel_requested_at` | timestamptz | NULL | |
@@ -417,6 +419,30 @@
 | `detail` | JSONB | NOT NULL DEFAULT `{}` | 校验失败原因等 |
 | `created_at` | timestamptz | NOT NULL | |
 
+### 6.20 `schedule`
+
+> M8 引入；`08 §1` 原先把调度表列为范围外，现由本表接管（不再是「另开 Spec」）。
+
+| 字段 | 类型 | 约束 | 说明 |
+| --- | --- | --- | --- |
+| `id` | UUID | PK | |
+| `task_id` | UUID | FK → `analysis_task.id`, NOT NULL, CASCADE | 被重复执行的任务 |
+| `conversation_id` | UUID | FK → `conversation.id`, NOT NULL, CASCADE | 冗余，用于列表与业务锁 |
+| `name` | text | NOT NULL | 显示名，默认取 `task.goal` 前 40 字 |
+| `cron` | text(120) | NOT NULL | 5 字段：分 时 日 月 周 |
+| `timezone` | text(64) | NOT NULL DEFAULT `'UTC'` | IANA 名称 |
+| `enabled` | bool | NOT NULL DEFAULT true | 暂停后不再被认领 |
+| `next_run_at` | timestamptz | NOT NULL | 始终为未来最近一次 |
+| `last_run_at` | timestamptz | NULL | 最近一次派发对应的计划时刻 |
+| `last_run_id` | UUID | FK → `task_run.id`, NULL, SET NULL | |
+| `last_status` | text | NULL, CHECK | `dispatched` / `skipped` / `failed` |
+| `last_error` | JSONB | NULL | `{code, detail}` |
+| `created_at` / `updated_at` | timestamptz | | |
+
+**唯一**：`(task_id, cron, timezone)`。**索引**：`(enabled, next_run_at)`（tick 认领路径）。
+**规则**：tick 用 `FOR UPDATE SKIP LOCKED` 认领到期行，先推进 `next_run_at` 再派发；
+错过窗口不补跑；删除 schedule 只把历史 Run 的 `schedule_id` 置空。
+
 ---
 
 ## 7. 关系与 ER 图
@@ -439,6 +465,8 @@ erDiagram
     TOOL_DEFINITION ||--o{ TOOL_GRANT : grants
     TOOL_DEFINITION ||--o{ TOOL_CALL_AUDIT : records
     ANALYSIS_TASK ||--o{ REPORT_REF : produces
+    ANALYSIS_TASK ||--o{ SCHEDULE : schedules
+    SCHEDULE ||--o{ TASK_RUN : triggers
 ```
 
 **删除策略**：
@@ -480,7 +508,7 @@ erDiagram
 | 报告 HTML | 跟随 `report_ref`，由文件清理策略管理 |
 | `secret` | 长期；轮换保留 `key_version` |
 
-清理任务属于 §12+ Scheduler，本模型只定义字段。
+清理任务由 `schedule`（`schedule` 表 + 进程内 tick）承担触发，具体清理策略仍属 §12+；本模型只定义字段。
 
 ---
 

@@ -153,6 +153,24 @@ def run_sql(database_url: str, query: str, **params: Any) -> list[dict[str, Any]
     return asyncio.run(_run())
 
 
+def execute_sql(database_url: str, query: str, **params: Any) -> None:
+    """Run one write statement (UPDATE/INSERT) on its own engine."""
+    import asyncio
+
+    from sqlalchemy import text
+    from sqlalchemy.ext.asyncio import create_async_engine
+
+    async def _run() -> None:
+        engine = create_async_engine(database_url)
+        try:
+            async with engine.begin() as connection:
+                await connection.execute(text(query), params)
+        finally:
+            await engine.dispose()
+
+    asyncio.run(_run())
+
+
 def make_send_message(client, conversation_id: str, content: str, **extra: Any) -> dict[str, Any]:
     response = client.post(
         f"/api/v1/conversations/{conversation_id}/messages",

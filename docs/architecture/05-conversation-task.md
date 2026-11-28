@@ -174,7 +174,8 @@ stateDiagram-v2
 ### 6.3 运行标识
 
 - `run_id` 是日志、事件、审计、报告引用的统一关联键。
-- 定时任务触发时，`trigger='scheduled'`，并携带 `idempotency_key`。
+- 定时任务触发时，`trigger='scheduled'`，并携带 `idempotency_key`（`schedule:<id>:<scheduled_for>`）与 `schedule_id`。
+- 无人值守（`scheduled`）运行不发起审批：需审批工具在请求前被过滤，`plan` 事件标注 `unattended=true`。
 - 同一 Task 的多次 Run 保留全部历史，不覆盖。
 
 ---
@@ -238,7 +239,8 @@ stateDiagram-v2
 | 进程崩溃 | 启动时扫描超时 `running` 的 Run，标记 `failed`；Task 同步 `failed` |
 | 用户重试 | 新建 Run，复用最近成功 Run 的 `history_blob` |
 | 审批恢复 | 读取 `run_event(approval_required)` 与 `DeferredToolRequests`，带决策续跑 |
-| 定时重复触发 | `idempotency_key` 命中已成功 Run 则直接返回 |
+| 定时重复触发 | `idempotency_key` 命中已存在 Run 则直接返回；唯一部分索引兜底 |
+| 定时派发遇忙 | 记录 `schedule.last_status='skipped'` 并推进 `next_run_at`，不阻塞调度循环 |
 | 历史损坏 | 从 `message` 重建；仍失败则要求新建 Task |
 | SSE 断线 | 按 `run_event.sequence` 重放，不影响执行 |
 

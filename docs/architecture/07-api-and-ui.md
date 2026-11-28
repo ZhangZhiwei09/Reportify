@@ -16,7 +16,7 @@
 - 不做报告内追问、在线筛选、图表下钻。
 - 不做复杂 RBAC；单用户本地模式。
 - 不做前端 SPA 路由与状态管理库。
-- 不在本阶段实现定时任务配置 UI（§12+）；只展示状态与「立即运行」。
+- 不做定时任务的通知与依赖编排（仅 Cron + 单任务）。
 
 ---
 
@@ -82,6 +82,26 @@
 | POST | `/runs/{id}/cancel` | 取消（幂等） |
 | GET | `/runs/{id}/approvals` | 待审批工具调用 |
 | POST | `/runs/{id}/approvals/{approval_id}` | 允许 / 拒绝 |
+
+> 实现注记（2026-11-28，M8）：`POST /tasks/{id}/runs` 支持 `Idempotency-Key` 头；
+> 同键重试返回原 Run，不新建行。
+
+### 5.1.1 定时任务（M8）
+
+| 方法 | 路径 | 说明 |
+| --- | --- | --- |
+| GET | `/schedules` | 定时任务列表（含 `run_count`） |
+| POST | `/schedules` | 创建（`task_id` + 5 字段 `cron` + `timezone`） |
+| GET | `/schedules/{id}` | 详情（上次/下次执行、最近状态） |
+| PATCH | `/schedules/{id}` | 改期 / 启停 / 改名 |
+| DELETE | `/schedules/{id}` | 删除（历史 Run 保留） |
+| POST | `/schedules/{id}/run` | 立即派发一次（`trigger=api`，202 + Run） |
+| GET | `/schedules/{id}/runs` | 该定时任务产生的 Run |
+
+> 2026-11-28（M8）：创建时校验 Cron 与时区，永不触发的表达式返回 `400 invalid_argument`；
+> 同一 `(task_id, cron, timezone)` 重复创建返回 `409 conflict`。
+
+### 5.2 数据源
 
 > 实现注记（2026-11-22，M5）：§5.1–§5.5 的路由已全部落地。审批接口的 `decision` 取
 > `approve`/`deny`；全部待批项决策后同一个 run 续跑（`waiting_approval → running → succeeded`）。
@@ -196,7 +216,7 @@ data: {"tool_call_id":"...","status":"succeeded","duration_ms":820,"summary":"..
 | --- | --- | --- |
 | 分析工作台 | 会话流、Agent 执行过程、产物卡片、输入框 | conversations / messages / runs SSE |
 | 报告库 | 报告列表、类型、数据源、样本量、状态、查看/下载 | reports |
-| 定时任务 | Cron、启停、上次/下次执行、生成数量 | 只读状态；「立即运行」调用 runs |
+| 定时任务 | Cron、时区、启停、上次/下次执行、运行数；新建表单 | schedules API；「立即运行」调 `/schedules/{id}/run` |
 | 数据源 | 连接卡片、只读模式、Schema、表、同步 | data-sources |
 | 字段元数据 | 类型徽章、展示名、单位、标签、描述 | columns |
 
@@ -231,7 +251,8 @@ static/
 > 实现注记（2026-11-22，M4）：以上文件已按此结构落地。页面由 FastAPI 直接返回 Jinja2 骨架
 > （`GET /analysis` … `GET /templates`，`/` 302 到 `/analysis`），静态资源挂在 `/static`；
 > 数据一律由 `static/views/*.js` 调 API 后用 `textContent` 写入，因此 CSP 可保持
-> `script-src 'self'`（无内联脚本、无 `unsafe-eval`）。定时任务视图只做状态说明：创建与调度属于 §12+。
+> `script-src 'self'`（无内联脚本、无 `unsafe-eval`）。定时任务视图（M8）同此模式：列表、创建、
+> 启停与「立即运行」全部经由 `/schedules` API，页面本身只含骨架与表单。
 
 ---
 
@@ -295,6 +316,6 @@ static/
 ## 11. Open Questions
 
 1. 是否需要在 MVP 提供简易登录页，还是仅靠本地绑定 + 可选 Token？
-2. 定时任务的创建/编辑 UI 是否在 §12+ 一并设计？
+2. ~~定时任务的创建/编辑 UI 是否在 §12+ 一并设计？~~ 已在 M8 落地（`/scheduler` + `/schedules`）。
 3. MCP 审计页是否需要导出 CSV？
 4. 报告库的搜索与筛选需要支持到什么粒度？

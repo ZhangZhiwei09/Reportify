@@ -56,7 +56,7 @@ from reportify.modules.runtime.schemas import (
 )
 from reportify.modules.tools.builtin import BUILTIN_FUNCTIONS
 from reportify.modules.tools.registry import ToolRegistry
-from reportify.modules.tools.schemas import ToolResult
+from reportify.modules.tools.schemas import ToolResult, ToolSpec
 from reportify.modules.workspace.loader import WorkspaceLoader
 
 logger = logging.getLogger(__name__)
@@ -129,6 +129,13 @@ class AgentRuntime:
                 task = await tasks_repo.get_task(session, request.task_id)
                 if task is None or task.conversation_id != request.conversation_id:
                     raise NotFound(f"task not found in conversation: {request.task_id}")
+                if request.idempotency_key is not None:
+                    existing = await tasks_repo.run_by_idempotency_key(
+                        session, request.idempotency_key
+                    )
+                    if existing is not None:
+                        # 07 §5: a retried request returns the run it already made.
+                        return existing.id
                 active = await tasks_repo.active_run(session, request.conversation_id)
                 if active is not None:
                     raise ConversationBusy(
@@ -142,6 +149,8 @@ class AgentRuntime:
                     trigger=request.trigger,
                     limits=self._budget(request.trigger).as_dict(),
                     model_settings=dict(request.model_overrides),
+                    schedule_id=request.schedule_id,
+                    idempotency_key=request.idempotency_key,
                 )
                 await tasks_repo.set_task_status(
                     session,
@@ -367,6 +376,13 @@ class AgentRuntime:
             task_id=task.id,
             conversation_id=task.conversation_id,
         )
+        # An unattended run has nobody to approve a deferred tool call, so the
+        # approval-gated tools are filtered out at layer 1 instead of parking the
+        # run in `waiting_approval` forever (M8, 03 §4.3).
+        unattended = run.trigger == "scheduled"
+        hidden_tools: list[str] = []
+        if unattended:
+            specs, hidden_tools = hide_approval_gated(specs)
         tools = [
             BUILTIN_FUNCTIONS[spec.model_name]
             for spec in specs
@@ -395,6 +411,10 @@ class AgentRuntime:
                 for mcp_toolset in mcp_bundle.toolsets
             ]
         warnings = list(bundle.warnings)
+        if hidden_tools:
+            warnings.append(
+                "unattended run hides approval-gated tools: " + ", ".join(hidden_tools)
+            )
         if mcp_bundle.unavailable:
             warnings.append(
                 "mcp servers unreachable this run: " + ", ".join(mcp_bundle.unavailable)
@@ -423,6 +443,8 @@ class AgentRuntime:
                     ],
                     "mcp_unavailable": mcp_bundle.unavailable,
                     "approval_required_tools": sorted(approval_names),
+                    "unattended": unattended,
+                    "hidden_tools": hidden_tools,
                     "budget": budget.as_dict(),
                 },
             )
@@ -875,6 +897,27 @@ class _EventPump:
                 "error_code": error_code,
             },
         )
+
+
+def hide_approval_gated(specs: list[ToolSpec]) -> tuple[list[ToolSpec], list[str]]:
+    """Split tools into (visible, hidden) for an unattended run (M8).
+
+    Layer 1 filtering: a cron run has nobody to approve a deferred call, so the
+    tools that would pause it are removed before the model ever sees them.
+    """
+    hidden = [
+        spec.model_name
+        for spec in specs
+        if spec.requires_approval or spec.risk_level == "destructive"
+    ]
+    if not hidden:
+        return specs, []
+    visible = [
+        spec
+        for spec in specs
+        if not (spec.requires_approval or spec.risk_level == "destructive")
+    ]
+    return visible, hidden
 
 
 def _fingerprint(tool_name: str, args: Any) -> str:

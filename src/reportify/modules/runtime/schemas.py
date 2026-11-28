@@ -93,6 +93,7 @@ class RunRequest:
     template_name: str | None = None
     model_overrides: dict[str, Any] = field(default_factory=dict)
     idempotency_key: str | None = None
+    schedule_id: UUID | None = None
 
 
 @dataclass

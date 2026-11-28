@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Header, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
@@ -45,12 +45,17 @@ async def start_run(
     session_factory: Annotated[
         async_sessionmaker[AsyncSession], Depends(get_session_factory)
     ],
+    idempotency_key: Annotated[str | None, Header()] = None,
 ) -> RunRead:
     task = await service.get_task(task_id)
     async with session_factory() as session:
         message = await _latest_user_message(session, task_id)
     if message is None:
         raise InvalidArgument("task has no user message to re-run")
+
+    key = (idempotency_key or "").strip() or None
+    if key is not None and len(key) > 160:
+        raise InvalidArgument("Idempotency-Key must be at most 160 characters")
 
     run_id = await runtime.start(
         RunRequest(
@@ -59,6 +64,7 @@ async def start_run(
             user_message_id=message.id,
             skill_names=tuple(task.skill_names or ()),
             template_name=task.template_name,
+            idempotency_key=key,
         )
     )
     run = await runtime.get_run(run_id)

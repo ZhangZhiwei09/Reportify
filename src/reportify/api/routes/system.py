@@ -49,7 +49,7 @@ async def config(
             "report_templates": True,
             "reports": True,
             "approvals": True,
-            "scheduler": False,
+            "scheduler": True,
             "memory": False,
         },
         "limits": {
@@ -63,5 +63,9 @@ async def config(
         "mcp": {
             "allow_loopback": settings.allow_loopback,
             "read_timeout_seconds": settings.mcp_read_timeout_seconds,
+        },
+        "scheduler": {
+            "loop_enabled": settings.scheduler_enabled,
+            "tick_seconds": settings.scheduler_tick_seconds,
         },
     }

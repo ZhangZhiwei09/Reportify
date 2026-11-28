@@ -26,3 +26,9 @@ def test_missing_secret_key_fails(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_get_settings_is_cached(settings_env: None) -> None:
     get_settings.cache_clear()
     assert get_settings() is get_settings()
+
+
+def test_scheduler_defaults_are_safe(settings: Settings) -> None:
+    assert settings.scheduler_enabled is True
+    assert settings.scheduler_tick_seconds >= 1
+    assert settings.scheduler_batch_size >= 1

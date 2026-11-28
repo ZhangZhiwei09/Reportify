@@ -91,6 +91,7 @@ class RunRead(BaseModel):
     task_id: UUID
     conversation_id: UUID
     trigger: str
+    schedule_id: UUID | None = None
     status: str
     model_name: str
     limits: dict[str, Any] = Field(default_factory=dict)
